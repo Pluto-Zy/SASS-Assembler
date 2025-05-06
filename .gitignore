@@ -1,0 +1,19 @@
+# for VSCode
+.cache/
+.vscode/
+build*/
+
+# for CLion
+.idea/
+cmake-build-*/
+
+# for Visual Studio
+.vs/
+out/
+CMakeSettings.json
+
+# Vim
+*.swp
+
+# macOS
+.DS_Store
