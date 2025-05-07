@@ -5,31 +5,29 @@
 #include <string_view>
 
 namespace sassas {
-auto Token::kind_str(TokenKind kind) -> std::string_view {
+auto Token::kind_description(TokenKind kind) -> std::string_view {
     switch (kind) {
     case End:
-        return "EOF";
+        return "`EOF`";
     case Identifier:
-        return "Identifier";
+        return "identifier";
     case Integer:
-        return "Integer";
+        return "integer";
     case String:
-        return "String";
+        return "string";
 
-        // clang-format off
-    #define SASSAS_KEYWORD(name, spelling) case TokenKind::Keyword##name:
-    #include "sassas/lexer/keyword.def"
-        // clang-format on
-        return "Keyword";
+#define SASSAS_KEYWORD(name, spelling)                                                             \
+    case TokenKind::Keyword##name:                                                                 \
+        return "keyword `" spelling "`";
+#include "sassas/lexer/keyword.def"
 
-        // clang-format off
-    #define SASSAS_PUNCTUATOR(name, spelling) case TokenKind::Punctuator##name:
-    #include "sassas/lexer/punctuator.def"
-        // clang-format on
-        return "Punctuator";
+#define SASSAS_PUNCTUATOR(name, spelling)                                                          \
+    case TokenKind::Punctuator##name:                                                              \
+        return "`" spelling "`";
+#include "sassas/lexer/punctuator.def"
 
     default:
-        return "Unknown";
+        return "unknown";
     }
 }
 

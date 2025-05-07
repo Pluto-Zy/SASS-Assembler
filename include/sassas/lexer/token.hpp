@@ -47,12 +47,12 @@ public:
         return kind_;
     }
 
-    /// Returns the string representation of the token kind `kind`.
-    static auto kind_str(TokenKind kind) -> std::string_view;
+    /// Returns a string description of the token kind. It can be used in the diagnostic message.
+    static auto kind_description(TokenKind kind) -> std::string_view;
 
-    /// Returns the string representation of the token kind of `*this`.
-    auto kind_str() const -> std::string_view {
-        return kind_str(kind_);
+    /// Returns a string description of the token kind of `*this`.
+    auto kind_description() const -> std::string_view {
+        return kind_description(kind_);
     }
 
     void set_content(std::string_view content) {

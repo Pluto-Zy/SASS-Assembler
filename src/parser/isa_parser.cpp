@@ -46,9 +46,9 @@ auto ISAParser::expect_token(Token const &token, Token::TokenKind expected_kind)
     if (token.is_not(expected_kind)) {
         string_pool_.push_back(
             fmt::format(
-                "expected token `{}`, but got `{}`",
-                Token::kind_str(expected_kind),
-                token.kind_str()
+                "expected {}, but got {}",
+                Token::kind_description(expected_kind),
+                token.kind_description()
             )
         );
 
