@@ -40,10 +40,14 @@ EmptyLineAfterAccessModifier: Never
 EmptyLineBeforeAccessModifier: Leave
 FixNamespaceComments: true
 IncludeCategories:
+  - Regex: '^((<|")fmt)' # {fmt} Headers
+    Priority: 2
+  - Regex: '^((<|")annotate_snippets)' # annotate-snippets Headers
+    Priority: 3
   - Regex: '^".*\.(hpp|h)"' # User Headers
     Priority: 1
   - Regex: "^<[^>]*>$" # STL Headers
-    Priority: 2
+    Priority: 4
 IncludeBlocks: Regroup
 IndentAccessModifiers: false
 IndentCaseBlocks: false
