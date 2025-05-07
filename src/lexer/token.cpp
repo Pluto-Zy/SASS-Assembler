@@ -8,8 +8,8 @@ namespace sassas {
 auto Token::is_keyword() const -> bool {
     switch (kind_) {
         // clang-format off
-        #define SASSAS_KEYWORD(name, spelling) case TokenKind::Keyword##name:
-        #include "sassas/lexer/keyword.def"
+    #define SASSAS_KEYWORD(name, spelling) case TokenKind::Keyword##name:
+    #include "sassas/lexer/keyword.def"
         // clang-format on
         return true;
 
@@ -21,8 +21,8 @@ auto Token::is_keyword() const -> bool {
 auto Token::is_punctuator() const -> bool {
     switch (kind_) {
         // clang-format off
-        #define SASSAS_PUNCTUATOR(name, spelling) case TokenKind::Punctuator##name:
-        #include "sassas/lexer/punctuator.def"
+    #define SASSAS_PUNCTUATOR(name, spelling) case TokenKind::Punctuator##name:
+    #include "sassas/lexer/punctuator.def"
         // clang-format on
         return true;
 
@@ -32,15 +32,14 @@ auto Token::is_punctuator() const -> bool {
 }
 
 auto Token::merge(Token const &other, TokenKind new_kind) const -> Token {
+    unsigned const location = std::ranges::min(location_, other.location());
+
     char const *const begin =
         location_ < other.location() ? content_.data() : other.content().data();
     std::size_t const size =
-        std::ranges::max(location_ + content_.size(), other.location() + other.content().size());
+        std::ranges::max(location_ + content_.size(), other.location() + other.content().size())
+        - location;
 
-    return {
-        new_kind,
-        std::string_view(begin, size),
-        std::ranges::min(location_, other.location()),
-    };
+    return { new_kind, std::string_view(begin, size), location };
 }
 }  // namespace sassas
