@@ -14,7 +14,11 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-add_executable(sassas src/main.cpp)
+add_executable(sassas
+    src/lexer/token.cpp
+    src/lexer/lexer.cpp
+    src/main.cpp
+)
 target_include_directories(sassas PRIVATE include)
 # Set the compile options for different compilers.
 if (MSVC)

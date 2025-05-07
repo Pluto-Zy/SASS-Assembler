@@ -1,0 +1,43 @@
+//! This file defines all the punctuators used in the assembler.
+
+#ifndef SASSAS_PUNCTUATOR
+    #define SASSAS_PUNCTUATOR(name, spelling)
+#endif
+
+SASSAS_PUNCTUATOR(LeftSquare, "[")
+SASSAS_PUNCTUATOR(RightSquare, "]")
+SASSAS_PUNCTUATOR(LeftParen, "(")
+SASSAS_PUNCTUATOR(RightParen, ")")
+SASSAS_PUNCTUATOR(LeftBrace, "{")
+SASSAS_PUNCTUATOR(RightBrace, "}")
+SASSAS_PUNCTUATOR(Dot, ".")
+SASSAS_PUNCTUATOR(Amp, "&")
+SASSAS_PUNCTUATOR(AmpAmp, "&&")
+SASSAS_PUNCTUATOR(Star, "*")
+SASSAS_PUNCTUATOR(Plus, "+")
+SASSAS_PUNCTUATOR(Minus, "-")
+SASSAS_PUNCTUATOR(Arrow, "->")
+SASSAS_PUNCTUATOR(Tilde, "~")
+SASSAS_PUNCTUATOR(Exclaim, "!")
+SASSAS_PUNCTUATOR(ExclaimEqual, "!=")
+SASSAS_PUNCTUATOR(Slash, "/")
+SASSAS_PUNCTUATOR(Percent, "%")
+SASSAS_PUNCTUATOR(Less, "<")
+SASSAS_PUNCTUATOR(LessLess, "<<")
+SASSAS_PUNCTUATOR(LessEqual, "<=")
+SASSAS_PUNCTUATOR(Greater, ">")
+SASSAS_PUNCTUATOR(GreaterGreater, ">>")
+SASSAS_PUNCTUATOR(GreaterEqual, ">=")
+SASSAS_PUNCTUATOR(Pipe, "|")
+SASSAS_PUNCTUATOR(PipePipe, "||")
+SASSAS_PUNCTUATOR(Question, "?")
+SASSAS_PUNCTUATOR(Colon, ":")
+SASSAS_PUNCTUATOR(Semi, ";")
+SASSAS_PUNCTUATOR(Equal, "=")
+SASSAS_PUNCTUATOR(EqualEqual, "==")
+SASSAS_PUNCTUATOR(Comma, ",")
+SASSAS_PUNCTUATOR(At, "@")
+SASSAS_PUNCTUATOR(Dollar, "$")
+SASSAS_PUNCTUATOR(BackTick, "`")
+
+#undef SASSAS_PUNCTUATOR
