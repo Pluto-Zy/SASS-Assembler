@@ -3,6 +3,7 @@
 
 #include "sassas/diagnostic/diagnostic.hpp"
 #include "sassas/isa/architecture.hpp"
+#include "sassas/isa/condition_type.hpp"
 #include "sassas/lexer/lexer.hpp"
 
 #include <optional>
@@ -29,6 +30,12 @@ public:
     /// `take_diagnostics()` method.
     auto parse_architecture() -> std::optional<Architecture>;
 
+    /// Parses the `CONDITION TYPES` section in the instruction description file. If the parsing is
+    /// successful, it returns a vector of `ConditionType` objects, which correspond to each item in
+    /// this section. Otherwise, it returns `std::nullopt` and the generated diagnostic information
+    /// can be obtained through the `take_diagnostics()` method.
+    auto parse_condition_types() -> std::optional<std::vector<ConditionType>>;
+
 private:
     /// The origin of the source code. This is used to generate diagnostic information.
     std::string_view origin_;
@@ -54,6 +61,18 @@ private:
         std::string_view label = {},
         std::string_view note = {}
     ) const -> Diag;
+
+    /// Returns whether `token` is **not** of kind `expected_kind`. If the kind does not match, it
+    /// generates a diagnostic message and adds it to the `diagnostics_` list.
+    auto expect_token(Token const &token, Token::TokenKind expected_kind) -> bool;
+
+    auto expect_current_token(Token::TokenKind expected_kind) -> bool {
+        return expect_token(lexer_.current_token(), expected_kind);
+    }
+
+    auto expect_next_token(Token::TokenKind expected_kind) -> bool {
+        return expect_token(lexer_.next_token(), expected_kind);
+    }
 
     /// Extracts the string content from a `token` that represents a string literal. The returned
     /// value does not include the surrounding quotes. This function checks the validity of the

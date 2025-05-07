@@ -2,17 +2,21 @@
 
 #include "sassas/diagnostic/diagnostic.hpp"
 #include "sassas/isa/architecture.hpp"
+#include "sassas/isa/condition_type.hpp"
 #include "sassas/lexer/token.hpp"
 
 #include "fmt/format.h"
+#include "fmt/ranges.h"
 
 #include "annotate_snippets/annotated_source.hpp"
 
 #include <cassert>
 #include <optional>
+#include <ranges>
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 namespace sassas {
 auto ISAParser::create_diag_at_token(
@@ -36,6 +40,25 @@ auto ISAParser::create_diag_at_token(
     }
 
     return diag;
+}
+
+auto ISAParser::expect_token(Token const &token, Token::TokenKind expected_kind) -> bool {
+    if (token.is_not(expected_kind)) {
+        string_pool_.push_back(
+            fmt::format(
+                "expected token `{}`, but got `{}`",
+                Token::kind_str(expected_kind),
+                token.kind_str()
+            )
+        );
+
+        diagnostics_.push_back(
+            create_diag_at_token(token, DiagLevel::Error, "Unexpected token", string_pool_.back())
+        );
+        return true;
+    } else {
+        return false;
+    }
 }
 
 auto ISAParser::get_string_literal(Token const &token) -> std::optional<std::string_view> {
@@ -64,27 +87,11 @@ auto ISAParser::get_string_literal(Token const &token) -> std::optional<std::str
 }
 
 auto ISAParser::expect_string_literal(Token const &token) -> std::optional<std::string_view> {
-    if (token.is(Token::String)) {
+    if (expect_token(token, Token::String)) {
+        return std::nullopt;
+    } else {
         return get_string_literal(token);
     }
-
-    // Invalid token. Generate diagnostic information.
-    string_pool_.push_back(
-        fmt::format(
-            "expected token `{}`, but got `{}`",
-            Token::kind_str(Token::String),
-            token.kind_str()
-        )
-    );
-
-    diagnostics_.push_back(create_diag_at_token(
-        token,
-        DiagLevel::Error,
-        "Expected a string literal",
-        string_pool_.back()
-    ));
-
-    return std::nullopt;
 }
 
 auto ISAParser::parse_architecture() -> std::optional<Architecture> {
@@ -157,6 +164,63 @@ auto ISAParser::parse_architecture() -> std::optional<Architecture> {
         return std::nullopt;
     } else {
         return result;
+    }
+}
+
+auto ISAParser::parse_condition_types() -> std::optional<std::vector<ConditionType>> {
+    assert(
+        lexer_.current_token().is(Token::KeywordTypes)
+        && "Expected `CONDITION TYPES` keyword at the beginning"
+    );
+
+    bool has_errors = false;
+    std::vector<ConditionType> results;
+    // Parse the list of condition types. Format:
+    //
+    //     name(identifier) `:` kind(identifier)
+    while (lexer_.next_token().is(Token::Identifier)) {
+        // The name of the condition type.
+        std::string_view const name = lexer_.current_token().content();
+        // Eat the `:`, and check if the next token is an identifier.
+        if (expect_next_token(Token::PunctuatorColon) || expect_next_token(Token::Identifier)) {
+            // TODO: Better error recovery.
+            return std::nullopt;
+        }
+        std::string_view const kind = lexer_.current_token().content();
+
+        if (auto condition_type = ConditionType::from_string(kind, name)) {
+            results.push_back(std::move(*condition_type));
+        } else {
+            // The `kind` string is invaild. Generate diagnostic information.
+            string_pool_.push_back(
+                fmt::format(
+                    "Valid kinds are: {}",
+                    fmt::join(
+                        ConditionType::get_kinds()
+                            | std::views::transform([](std::string_view kind) {
+                                  return fmt::format("`{}`", kind);
+                              }),
+                        ", "
+                    )
+                )
+            );
+
+            diagnostics_.push_back(create_diag_at_token(
+                lexer_.current_token(),
+                DiagLevel::Error,
+                "Invalid kind of condition type",
+                {},
+                string_pool_.back()
+            ));
+
+            has_errors = true;
+        }
+    }
+
+    if (has_errors) {
+        return std::nullopt;
+    } else {
+        return results;
     }
 }
 }  // namespace sassas
