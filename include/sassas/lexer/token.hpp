@@ -47,6 +47,14 @@ public:
         return kind_;
     }
 
+    /// Returns the string representation of the token kind `kind`.
+    static auto kind_str(TokenKind kind) -> std::string_view;
+
+    /// Returns the string representation of the token kind of `*this`.
+    auto kind_str() const -> std::string_view {
+        return kind_str(kind_);
+    }
+
     void set_content(std::string_view content) {
         content_ = content;
     }
