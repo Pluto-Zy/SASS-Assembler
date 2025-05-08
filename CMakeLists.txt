@@ -40,6 +40,7 @@ FetchContent_MakeAvailable(annotate-snippets)
 add_executable(sassas
     src/lexer/token.cpp
     src/lexer/lexer.cpp
+    src/parser/parser.cpp
     src/parser/isa_parser.cpp
     src/main.cpp
 )
