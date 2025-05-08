@@ -76,6 +76,39 @@ protected:
     /// whether `token` is of type `Token::String`. If not, it generates diagnostic information and
     /// returns `std::nullopt`.
     auto expect_string_literal(Token const &token) -> std::optional<std::string_view>;
+
+    /// Parses the value of an integer constant from `token`. Currently, it supports binary
+    /// (starting with 0b or 0B), octal (starting with 0), decimal, and hexadecimal (starting with
+    /// 0x or 0X) integers. It does not support parsing floating-point numbers. The character `_`
+    /// can be used to separate digits.
+    ///
+    /// This function checks whether `token` is a valid integer constant, i.e., it checks whether
+    /// its format is correct. In addition, it also verifies whether the integer value can be
+    /// represented by `bits` bits of signedness `signedness`. If it is not valid, it generates
+    /// diagnostic information and returns `std::nullopt`. `bits` must be a positive integer and
+    /// less than or equal to 64. `signedness` is a boolean value indicating whether the integer is
+    /// signed.
+    ///
+    /// We additionally allow the token to represent a value prefixed with a positive or negative
+    /// sign, such as +0x1234 or -0x1234. In lexical analysis, we do not consider the sign as part
+    /// of the integer literal, because at that time we cannot distinguish between "negative" and
+    /// "subtract". However, in some scenarios we need to include the sign, such as LDS R0,
+    /// [R1+-0x1]. Therefore, we allow such an extension here. Note that a negative sign can only be
+    /// used when `signedness` is `true`.
+    ///
+    /// This function assumes that `token` is a token representing an integer constant; if it is
+    /// not, the behavior is undefined.
+    ///
+    /// This function returns the integer value in the form of `uint64_t`, i.e., the result after
+    /// sign extension to 64 bits.
+    auto get_integer_constant(Token const &token, unsigned bits, bool signedness)
+        -> std::optional<std::uint64_t>;
+
+    /// This function behaves similarly to `get_integer_constant(token, bits, signedness)`, except
+    /// that it checks whether `token` is of type `Token::Integer`. If not, it generates diagnostic
+    /// information and returns `std::nullopt`.
+    auto expect_integer_constant(Token const &token, unsigned bits, bool signedness)
+        -> std::optional<std::uint64_t>;
 };
 }  // namespace sassas
 
