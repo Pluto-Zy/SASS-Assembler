@@ -63,12 +63,16 @@ public:
         return content_;
     }
 
-    void set_location(unsigned location) {
+    void set_location_begin(unsigned location) {
         location_ = location;
     }
 
-    auto location() const -> unsigned {
+    auto location_begin() const -> unsigned {
         return location_;
+    }
+
+    auto location_end() const -> unsigned {
+        return location_ + content_.size();
     }
 
     auto is(TokenKind kind) const -> bool {

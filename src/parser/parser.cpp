@@ -28,13 +28,9 @@ auto Parser::create_diag_at_token(
     std::string_view label,
     std::string_view note
 ) const -> Diag {
-    auto source =  //
+    auto source =
         ants::AnnotatedSource(lexer_.source(), origin_)
-            .with_primary_annotation(
-                target.location(),
-                target.location() + target.content().size(),
-                label
-            );
+            .with_primary_annotation(target.location_begin(), target.location_end(), label);
 
     auto diag = Diag(level, message).with_source(std::move(source));
     if (!note.empty()) {
@@ -113,7 +109,7 @@ public:
         content_(token.content()),
         bits_(bits),
         signedness_(signedness),
-        cur_pos_(token.location()),
+        cur_pos_(token.location_begin()),
         negative_(false),
         base_(10)  //
     {

@@ -58,13 +58,11 @@ auto Token::is_punctuator() const -> bool {
 }
 
 auto Token::merge(Token const &other, TokenKind new_kind) const -> Token {
-    unsigned const location = std::ranges::min(location_, other.location());
+    unsigned const location = std::ranges::min(location_, other.location_begin());
 
     char const *const begin =
-        location_ < other.location() ? content_.data() : other.content().data();
-    std::size_t const size =
-        std::ranges::max(location_ + content_.size(), other.location() + other.content().size())
-        - location;
+        location_ < other.location_begin() ? content_.data() : other.content().data();
+    std::size_t const size = std::ranges::max(location_end(), other.location_end()) - location;
 
     return { new_kind, std::string_view(begin, size), location };
 }
