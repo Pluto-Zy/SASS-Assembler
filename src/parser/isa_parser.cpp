@@ -11,6 +11,7 @@
 #include <cassert>
 #include <optional>
 #include <ranges>
+#include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -144,5 +145,62 @@ auto ISAParser::parse_condition_types() -> std::optional<std::vector<ConditionTy
     } else {
         return results;
     }
+}
+
+auto ISAParser::parse_constant_map() -> std::optional<ConstantMap> {
+    bool has_errors = false;
+    ConstantMap result_map;
+
+    while (lexer_.next_token().is(Token::Identifier)) {
+        // The name of the constant.
+        Token const name_token = lexer_.current_token();
+
+        // Eat the `=`.
+        if (expect_next_token(Token::PunctuatorEqual)) {
+            has_errors = true;
+            continue;
+        }
+
+        // Parse the constant value and insert it into the map.
+        if (auto const constant = expect_integer_constant(lexer_.next_token(), 32, true)) {
+            std::string name(name_token.content());
+            auto const value = static_cast<int>(*constant);
+
+            if (!result_map.try_emplace(std::move(name), value).second) {
+                // The constant name already exists in the map. Generate diagnostic information.
+                diagnostics_.push_back(
+                    create_diag_at_token(name_token, DiagLevel::Error, "Duplicate constant name")
+                );
+
+                has_errors = true;
+            }
+        } else {
+            has_errors = true;
+        }
+    }
+
+    if (has_errors) {
+        return std::nullopt;
+    } else {
+        return result_map;
+    }
+}
+
+auto ISAParser::parse_parameters() -> std::optional<ConstantMap> {
+    assert(
+        lexer_.current_token().is(Token::KeywordParameters)
+        && "Expected `PARAMETERS` keyword at the beginning"
+    );
+
+    return parse_constant_map();
+}
+
+auto ISAParser::parse_constants() -> std::optional<ConstantMap> {
+    assert(
+        lexer_.current_token().is(Token::KeywordConstants)
+        && "Expected `CONSTANTS` keyword at the beginning"
+    );
+
+    return parse_constant_map();
 }
 }  // namespace sassas
