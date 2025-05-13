@@ -90,7 +90,10 @@ public:
     /// Its content is the concatenation of the contents of these two tokens. If there are
     /// whitespace characters between the source code positions of these two tokens, those
     /// whitespace characters will be preserved.
-    auto merge(Token const &other, TokenKind new_kind) const -> Token;
+    ///
+    /// Note that this method returns the merged token as a new object. It does not modify `*this`
+    /// or `other`.
+    [[nodiscard]] auto merge(Token const &other, TokenKind new_kind) const -> Token;
 
     auto operator==(Token const &other) const -> bool = default;
 
