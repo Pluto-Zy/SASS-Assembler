@@ -14,6 +14,7 @@ namespace sassas {
 class ISAParser : public Parser {
 public:
     using ConstantMap = std::unordered_map<std::string, int>;
+    using StringMap = std::unordered_map<std::string, std::string>;
 
     using Parser::Parser;
 
@@ -38,6 +39,13 @@ public:
     /// Parses the `CONSTANTS` section in the instruction description file. It does almost the same
     /// thing as `parse_parameters()`.
     auto parse_constants() -> std::optional<ConstantMap>;
+
+    /// Parses the `STRING_MAP` section in the instruction description file. It contains a mapping
+    /// from an identifier to another identifier. If the parsing is successful, it returns a map of
+    /// string names to their corresponding string values. Otherwise, it returns `std::nullopt` and
+    /// the generated diagnostic information can be obtained through the `take_diagnostics()`
+    /// method.
+    auto parse_string_map() -> std::optional<StringMap>;
 
 private:
     /// Parses a list of constant mappings, which is a mapping from a string to an integer value.

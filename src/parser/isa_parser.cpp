@@ -203,4 +203,44 @@ auto ISAParser::parse_constants() -> std::optional<ConstantMap> {
 
     return parse_constant_map();
 }
+
+auto ISAParser::parse_string_map() -> std::optional<StringMap> {
+    assert(
+        lexer_.current_token().is(Token::KeywordStringMap)
+        && "Expected `STRING_MAP` keyword at the beginning"
+    );
+
+    bool has_errors = false;
+    StringMap result_map;
+
+    while (lexer_.next_token().is(Token::Identifier)) {
+        // The name of the string.
+        Token const name_token = lexer_.current_token();
+
+        // Eat the `->` and checks whether the next token is an identifier.
+        if (expect_next_token(Token::PunctuatorArrow) || expect_next_token(Token::Identifier)) {
+            has_errors = true;
+            continue;
+        }
+
+        // Add the item to the map.
+        std::string name(name_token.content());
+        std::string value(lexer_.current_token().content());
+
+        if (!result_map.try_emplace(std::move(name), std::move(value)).second) {
+            // The name already exists in the map. Generate diagnostic information.
+            diagnostics_.push_back(
+                create_diag_at_token(name_token, DiagLevel::Error, "Duplicate string map item")
+            );
+
+            has_errors = true;
+        }
+    }
+
+    if (has_errors) {
+        return std::nullopt;
+    } else {
+        return result_map;
+    }
+}
 }  // namespace sassas
