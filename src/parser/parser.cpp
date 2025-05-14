@@ -16,6 +16,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <iterator>
+#include <memory>
 #include <optional>
 #include <ranges>
 #include <string>
@@ -24,6 +25,14 @@
 #include <vector>
 
 namespace sassas {
+auto Parser::add_string(std::string_view content) -> std::string_view {
+    std::unique_ptr storage = std::make_unique<char[]>(content.size());
+    std::ranges::copy(content, storage.get());
+
+    string_pool_.push_back(std::move(storage));
+    return { string_pool_.back().get(), content.size() };
+}
+
 auto Parser::create_diag_at_token(
     TokenRange target_range,
     DiagLevel level,
@@ -51,13 +60,14 @@ auto Parser::expect_token_impl(Token const &token, bool match, std::string_view 
     -> bool  //
 {
     if (!match) {
-        string_pool_.push_back(
-            fmt::format("expected {}, but got {}", expected_kinds_str, token.kind_description())
-        );
-
-        diagnostics_.push_back(
-            create_diag_at_token(token, DiagLevel::Error, "Unexpected token", string_pool_.back())
-        );
+        diagnostics_.push_back(create_diag_at_token(
+            token,
+            DiagLevel::Error,
+            "Unexpected token",
+            add_string(
+                fmt::format("expected {}, but got {}", expected_kinds_str, token.kind_description())
+            )
+        ));
     }
 
     return !match;
@@ -443,10 +453,9 @@ auto Parser::get_integer_constant(Token const &token, unsigned bits, bool signed
         // NOLINTNEXTLINE(bugprone-assignment-in-if-condition)
         (note = parser.check_separator()) || (note = parser.check_digit()))
     {
-        string_pool_.push_back(std::move(note->message));
         diagnostics_.push_back(
             std::move(diag).with_sub_diag_entry(
-                ants::DiagEntry(DiagLevel::Note, string_pool_.back())
+                ants::DiagEntry(DiagLevel::Note, add_string(note->message))
                     .with_source(
                         ants::AnnotatedSource(lexer_.source(), origin_)
                             .with_primary_annotation(note->annotation_begin, note->annotation_end)
@@ -461,25 +470,27 @@ auto Parser::get_integer_constant(Token const &token, unsigned bits, bool signed
         return value;
     } else {
         // The integer constant has overflowed. Generate diagnostic information.
-        if (signedness) {
-            std::int64_t const max = (static_cast<std::int64_t>(1) << (bits - 1)) - 1;
-            std::int64_t const min = -(max + 1);
+        std::string_view const note = [&] {
+            if (signedness) {
+                std::int64_t const max = (static_cast<std::int64_t>(1) << (bits - 1)) - 1;
+                std::int64_t const min = -(max + 1);
 
-            string_pool_.push_back(fmt::format("the valid range is [{}, {}]", min, max));
-        } else {
-            string_pool_.push_back(
-                fmt::format(
-                    "the valid range is [0, {}]",
-                    bits == 64 ? std::numeric_limits<std::uint64_t>::max()
-                               : (static_cast<std::uint64_t>(1) << bits) - 1
-                )
-            );
-        }
+                return add_string(fmt::format("the valid range is [{}, {}]", min, max));
+            } else {
+                return add_string(
+                    fmt::format(
+                        "the valid range is [0, {}]",
+                        bits == 64 ? std::numeric_limits<std::uint64_t>::max()
+                                   : (static_cast<std::uint64_t>(1) << bits) - 1
+                    )
+                );
+            }
+        }();
 
         diagnostics_.push_back(
             std::move(diag)
                 .with_sub_diag_entry(DiagLevel::Note, "because the integer constant overflows")
-                .with_sub_diag_entry(DiagLevel::Note, string_pool_.back())
+                .with_sub_diag_entry(DiagLevel::Note, note)
         );
         return std::nullopt;
     }

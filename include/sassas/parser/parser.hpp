@@ -5,8 +5,8 @@
 #include "sassas/lexer/lexer.hpp"
 #include "sassas/lexer/token.hpp"
 
+#include <memory>
 #include <optional>
-#include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -36,9 +36,13 @@ protected:
     /// references. If the strings in the diagnostic information are dynamically generated at
     /// runtime, they need to be placed in the string pool to ensure that they remain valid before
     /// the diagnostic information is issued.
-    std::vector<std::string> string_pool_;
+    std::vector<std::unique_ptr<char[]>> string_pool_;
     /// Stores all diagnostic information generated during the parsing process.
     std::vector<Diag> diagnostics_;
+
+    /// Copies the content of `content` into `string_pool_` and returns the copied string. The
+    /// lifetime of the string is consistent with that of the `Parser` object.
+    auto add_string(std::string_view content) -> std::string_view;
 
     /// Creates a `Diag` object and adds a primary annotation at the range of `target_range`. The
     /// diagnostic has level `level` and carries the message `message`. If `label` is not empty, the

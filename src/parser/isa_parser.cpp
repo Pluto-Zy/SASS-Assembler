@@ -118,25 +118,23 @@ auto ISAParser::parse_condition_types() -> std::optional<std::vector<ConditionTy
             results.push_back(std::move(*condition_type));
         } else {
             // The `kind` string is invaild. Generate diagnostic information.
-            string_pool_.push_back(
-                fmt::format(
-                    "Valid kinds are: {}",
-                    fmt::join(
-                        ConditionType::get_kinds()
-                            | std::views::transform([](std::string_view kind) {
-                                  return fmt::format("`{}`", kind);
-                              }),
-                        ", "
-                    )
-                )
-            );
-
             diagnostics_.push_back(create_diag_at_token(
                 lexer_.current_token(),
                 DiagLevel::Error,
                 "Invalid kind of condition type",
                 {},
-                string_pool_.back()
+                add_string(
+                    fmt::format(
+                        "Valid kinds are: {}",
+                        fmt::join(
+                            ConditionType::get_kinds()
+                                | std::views::transform([](std::string_view kind) {
+                                      return fmt::format("`{}`", kind);
+                                  }),
+                            ", "
+                        )
+                    )
+                )
             ));
 
             has_errors = true;
@@ -410,25 +408,22 @@ auto ISAParser::parse_register_list() -> std::optional<Registers> {
             if (name_count != value_count) {
                 // The number of register names and values do not match. Generate diagnostic
                 // information.
-                ants::AnnotatedSource source(lexer_.source(), origin_);
-
-                string_pool_.push_back(
-                    fmt::format("{} name{}", name_count, name_count > 1 ? "s" : "")
-                );
-                source.add_primary_annotation(
-                    names->location_begin(),
-                    names->location_end(),
-                    string_pool_.back()
-                );
-
-                string_pool_.push_back(
-                    fmt::format("{} value{}", value_count, value_count > 1 ? "s" : "")
-                );
-                source.add_primary_annotation(
-                    values->location_begin(),
-                    values->location_end(),
-                    string_pool_.back()
-                );
+                auto source =
+                    ants::AnnotatedSource(lexer_.source(), origin_)
+                        .with_primary_annotation(
+                            names->location_begin(),
+                            names->location_end(),
+                            add_string(
+                                fmt::format("{} name{}", name_count, name_count > 1 ? "s" : "")
+                            )
+                        )
+                        .with_primary_annotation(
+                            values->location_begin(),
+                            values->location_end(),
+                            add_string(
+                                fmt::format("{} value{}", value_count, value_count > 1 ? "s" : "")
+                            )
+                        );
 
                 diagnostics_.push_back(
                     Diag(
