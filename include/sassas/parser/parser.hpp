@@ -178,6 +178,16 @@ protected:
     /// returns `std::nullopt`.
     auto expect_string_literal(Token const &token) -> std::optional<std::string_view>;
 
+    /// This function expects `token` to be an identifier or a string literal. If `token` is an
+    /// identifier, it returns its spelling. Otherwise, it returns the content of the string
+    /// literal.
+    auto get_identifier_or_string(Token const &token) -> std::optional<std::string_view>;
+
+    /// This function behaves similarly to `get_identifier_or_string(token)`, except that it checks
+    /// whether `token` is of type `Token::Identifier` or `Token::String`. If not, it generates
+    /// diagnostic information and returns `std::nullopt`.
+    auto expect_identifier_or_string(Token const &token) -> std::optional<std::string_view>;
+
     /// Parses the value of an integer constant from `token`. Currently, it supports binary
     /// (starting with 0b or 0B), octal (starting with 0), decimal, and hexadecimal (starting with
     /// 0x or 0X) integers. It does not support parsing floating-point numbers. The character `_`

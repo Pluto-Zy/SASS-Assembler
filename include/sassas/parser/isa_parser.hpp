@@ -3,10 +3,14 @@
 
 #include "sassas/isa/architecture.hpp"
 #include "sassas/isa/condition_type.hpp"
+#include "sassas/isa/register.hpp"
+#include "sassas/lexer/token.hpp"
 #include "sassas/parser/parser.hpp"
 
 #include <optional>
+#include <ranges>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -46,6 +50,128 @@ public:
     /// the generated diagnostic information can be obtained through the `take_diagnostics()`
     /// method.
     auto parse_string_map() -> std::optional<StringMap>;
+
+private:
+    /// Parses a register category concatenation, which is a list of register categories
+    /// concatenated by `+` signs. For example:
+    ///
+    ///     Integer = Integer8 + Integer16 + Integer32 + Integer64;
+    ///             ^ -------------------------------------------- parse this sequence
+    ///             |
+    ///             current token
+    ///
+    /// This function also checks whether the register category exists in `register_table`. If it
+    /// does not exist, it returns `std::nullopt`. Otherwise, it returns a `Registers` object that
+    /// represents the concatenated register list.
+    auto parse_register_category_concatenation(RegisterTable const &register_table)
+        -> std::optional<Registers>;
+
+    /// Represents a range expression of the form `(begin..end)`, where `begin` and `end` are both
+    /// 32-bit unsigned integers.
+    class RangeExpr : public TokenRange, public std::ranges::iota_view<unsigned, unsigned> {
+        using IotaBase = std::ranges::iota_view<unsigned, unsigned>;
+
+    public:
+        RangeExpr() = default;
+        RangeExpr(unsigned begin, unsigned end) : IotaBase(std::views::iota(begin, end + 1)) { }
+        RangeExpr(TokenRange token_range, unsigned begin, unsigned end) :
+            TokenRange(token_range), IotaBase(std::views::iota(begin, end + 1)) { }
+
+        // There is also a `size()` method `TokenRange` class, so we introduce the needed `size()`
+        // here.
+        using IotaBase::size;
+
+        /// Creates a range expression that represents an empty range.
+        static auto empty_range() -> RangeExpr {
+            return { /*begin=*/1, /*end=*/0 };
+        }
+    };
+
+    /// Parses a range expression of the form `(begin..end)`, where `begin` and `end` are both
+    /// 32-bit unsigned integers. Returns a `std::pair` object containing the start and end values.
+    /// It also checks whether `begin <= end` holds.
+    ///
+    /// The function assumes that the current token is `(`. And the current token is the token after
+    /// the `)` when the function returns.
+    auto parse_range_expr() -> std::optional<RangeExpr>;
+
+    /// Represents a register name in a register list. This object is the return value of
+    /// `parse_register_name()`.
+    struct RegisterName : public TokenRange {
+        /// The prefix of the register name. If the name has a range expression, such as
+        /// `SR(0..255)`, then the prefix is `SR`. Otherwise, it is the name of the register.
+        std::string_view prefix;
+        /// The range expression associated with this name. If the name is not associated with a
+        /// range expression, then `range.empty()` returns `true`.
+        RangeExpr range;
+
+        RegisterName() = default;
+        RegisterName(TokenRange token_range, std::string_view prefix) :
+            TokenRange(token_range), prefix(prefix), range(RangeExpr::empty_range()) { }
+        RegisterName(TokenRange token_range, std::string_view prefix, RangeExpr range) :
+            TokenRange(token_range), prefix(prefix), range(range) { }
+
+        auto has_associated_range() const -> bool {
+            return !range.empty();
+        }
+
+        /// Returns the number of names represented by this object. If the name has an associated
+        /// range expression, the size of the range is returned. Otherwise, the number of names
+        /// is 1.
+        auto name_count() const -> unsigned {
+            return has_associated_range() ? range.size() : 1;
+        }
+    };
+
+    /// Parses the register name part of a register initialization list, such as:
+    ///
+    ///     Integer8 U8 = 0, S8 = 1;
+    ///              ^^      ^^ parse these two parts
+    ///              |
+    ///              current token
+    ///
+    /// If the register name has an associated range expression, it will be included as well.
+    ///
+    /// This method assumes that the current token is the name itself.
+    auto parse_register_name() -> std::optional<RegisterName>;
+
+    /// Parses the initial value of a register, which is the part after the `=` sign in a register
+    /// initialization list. It can be an integer or a range expression. If the returned `RangeExpr`
+    /// has a size of 1, it indicates a single integer value.
+    ///
+    /// This method assumes that the current token is the token after the `=` sign.
+    auto parse_register_value() -> std::optional<RangeExpr>;
+
+    /// Parses a register initialization list, which is a list of register names and their initial
+    /// values, such as
+    ///
+    ///     Integer8 U8 = 0, S8 = 1;
+    ///              ^^^^^^^^^^^^^^ parse this part
+    auto parse_register_list() -> std::optional<Registers>;
+
+    /// Parses a register category, which is the name of the category followed by a register list.
+    /// For example:
+    ///
+    ///     Integer8 U8 = 0, S8 = 1;
+    ///     ^^^^^^^^^^^^^^^^^^^^^^^ parse this part
+    ///
+    /// or
+    ///
+    ///     Integer = Integer8 + Integer16 + Integer32 + Integer64;
+    ///     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ parse this part
+    ///
+    /// The semicolon at the end of the line is not included in the parsing.
+    ///
+    /// If an error occurs during the parsing of each part, this function will also perform error
+    /// recovery.
+    auto parse_register_category(RegisterTable const &register_table) -> std::optional<Registers>;
+
+public:
+    /// Parses the `REGISTERS` section in the instruction description file. If the parsing is
+    /// successful, it returns a `RegisterTable` object that contains the parsed register
+    /// categories. Otherwise, it returns `std::nullopt` and the generated diagnostic information
+    /// can be obtained through the `take_diagnostics()` method.
+    auto parse_registers() -> std::optional<RegisterTable>;
 
 private:
     /// Parses a list of constant mappings, which is a mapping from a string to an integer value.

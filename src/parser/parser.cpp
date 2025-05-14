@@ -160,6 +160,18 @@ auto Parser::expect_string_literal(Token const &token) -> std::optional<std::str
     }
 }
 
+auto Parser::get_identifier_or_string(Token const &token) -> std::optional<std::string_view> {
+    return token.is(Token::Identifier) ? token.content() : get_string_literal(token);
+}
+
+auto Parser::expect_identifier_or_string(Token const &token) -> std::optional<std::string_view> {
+    if (expect_token(token, Token::Identifier, Token::String)) {
+        return std::nullopt;
+    } else {
+        return get_identifier_or_string(token);
+    }
+}
+
 namespace {
 /// This is a parser for integer constants. It is used to parse integer constants in the source code
 /// and convert them into a `std::uint64_t` value. The parser handles various formats, including
