@@ -95,7 +95,7 @@ auto Lexer::next_token() -> Token const & {
         // clang-format on
         // Identifier or keyword.
         current_ = std::ranges::find_if_not(current_, source_.end(), [](char c) {
-            return std::isalnum(c) || c == '_';
+            return std::isalnum(c) || c == '_' || c == '.';
         });
         return adjust_identifer_kind(form_token(Token::Identifier));
 
