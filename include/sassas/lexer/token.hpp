@@ -5,6 +5,49 @@
 #include <string_view>
 
 namespace sassas {
+/// This class represents the range of source code occupied by a token.
+///
+/// This class does not associate with any source code, but only represents a range defined by two
+/// positions. In some scenarios, we can store `TokenRange` instead of `token` to avoid the
+/// cumbersome construction process.
+class TokenRange {
+public:
+    TokenRange() : location_begin_(0u), location_end_(0u) { }
+    TokenRange(unsigned location_begin, unsigned location_end) :
+        location_begin_(location_begin), location_end_(location_end) { }
+
+    void set_location_begin(unsigned location) {
+        location_begin_ = location;
+    }
+
+    auto location_begin() const -> unsigned {
+        return location_begin_;
+    }
+
+    void set_location_end(unsigned location) {
+        location_end_ = location;
+    }
+
+    auto location_end() const -> unsigned {
+        return location_end_;
+    }
+
+    auto size() const -> unsigned {
+        return location_end_ - location_begin_;
+    }
+
+    /// Returns the content of the token range in the source code.
+    auto content(std::string_view source) const -> std::string_view {
+        return source.substr(location_begin_, size());
+    }
+
+    auto operator==(TokenRange const &other) const -> bool = default;
+
+private:
+    unsigned location_begin_;
+    unsigned location_end_;
+};
+
 class Token {
 public:
     enum TokenKind : std::uint8_t {
@@ -73,6 +116,10 @@ public:
 
     auto location_end() const -> unsigned {
         return location_ + content_.size();
+    }
+
+    auto token_range() const -> TokenRange {
+        return TokenRange(location_begin(), location_end());
     }
 
     auto is(TokenKind kind) const -> bool {

@@ -40,18 +40,31 @@ protected:
     /// Stores all diagnostic information generated during the parsing process.
     std::vector<Diag> diagnostics_;
 
-    /// Creates a `Diag` object and adds a primary annotation at the range of `target`. The
+    /// Creates a `Diag` object and adds a primary annotation at the range of `target_range`. The
     /// diagnostic has level `level` and carries the message `message`. If `label` is not empty, the
     /// corresponding label is added to the label. If `note` is not empty, an additional diagnostic
     /// item is added to the diagnostic. Note that the created `Diag` object is not added to the
     /// `diagnostics_` vector, so that the user can modify it before adding it to the list.
+    auto create_diag_at_token(
+        TokenRange target_range,
+        DiagLevel level,
+        std::string_view message,
+        std::string_view label = {},
+        std::string_view note = {}
+    ) const -> Diag;
+
+    /// Creates a `Diag` object and adds a primary annotation at the range of `target`. This
+    /// function is similar to the previous one, except that it uses the token itself to determine
+    /// the range.
     auto create_diag_at_token(
         Token const &target,
         DiagLevel level,
         std::string_view message,
         std::string_view label = {},
         std::string_view note = {}
-    ) const -> Diag;
+    ) const -> Diag {
+        return create_diag_at_token(target.token_range(), level, message, label, note);
+    }
 
     /// Returns whether `token` is **not** of kind `expected_kind`. If the kind does not match, it
     /// generates a diagnostic message and adds it to the `diagnostics_` list.

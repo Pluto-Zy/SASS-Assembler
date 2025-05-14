@@ -22,15 +22,19 @@
 
 namespace sassas {
 auto Parser::create_diag_at_token(
-    Token const &target,
+    TokenRange target_range,
     DiagLevel level,
     std::string_view message,
     std::string_view label,
     std::string_view note
 ) const -> Diag {
-    auto source =
+    auto source =  //
         ants::AnnotatedSource(lexer_.source(), origin_)
-            .with_primary_annotation(target.location_begin(), target.location_end(), label);
+            .with_primary_annotation(
+                target_range.location_begin(),
+                target_range.location_end(),
+                label
+            );
 
     auto diag = Diag(level, message).with_source(std::move(source));
     if (!note.empty()) {
