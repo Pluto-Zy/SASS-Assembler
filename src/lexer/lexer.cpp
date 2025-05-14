@@ -189,7 +189,12 @@ auto Lexer::next_token() -> Token const & {
         }
 
     case '.':
-        return form_token(Token::PunctuatorDot);
+        if (current_ != source_.end() && *current_ == '.') {
+            ++current_;
+            return form_token(Token::PunctuatorDotDot);
+        } else {
+            return form_token(Token::PunctuatorDot);
+        }
     case '?':
         return form_token(Token::PunctuatorQuestion);
     case ':':
