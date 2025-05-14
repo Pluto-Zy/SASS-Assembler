@@ -34,6 +34,15 @@ public:
     /// can be obtained through the `take_diagnostics()` method.
     auto parse_condition_types() -> std::optional<std::vector<ConditionType>>;
 
+private:
+    /// Parses a list of constant mappings, which is a mapping from a string to an integer value.
+    /// The `PARAMETERS` and `CONSTANTS` sections have such a list. The list starts with a keyword
+    /// token and terminates when the next keyword token is encountered.
+    ///
+    /// Currently we use `int` as the value type.
+    auto parse_constant_map() -> std::optional<ConstantMap>;
+
+public:
     /// Parses the `PARAMETERS` section in the instruction description file. If the parsing is
     /// successful, it returns a map of parameter names to their constant values. Otherwise, it
     /// returns `std::nullopt` and the generated diagnostic information can be obtained through the
@@ -172,14 +181,6 @@ public:
     /// categories. Otherwise, it returns `std::nullopt` and the generated diagnostic information
     /// can be obtained through the `take_diagnostics()` method.
     auto parse_registers() -> std::optional<RegisterTable>;
-
-private:
-    /// Parses a list of constant mappings, which is a mapping from a string to an integer value.
-    /// The `PARAMETERS` and `CONSTANTS` sections have such a list. The list starts with a keyword
-    /// token and terminates when the next keyword token is encountered.
-    ///
-    /// Currently we use `int` as the value type.
-    auto parse_constant_map() -> std::optional<ConstantMap>;
 };
 }  // namespace sassas
 
