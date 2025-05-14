@@ -66,16 +66,104 @@ protected:
         return create_diag_at_token(target.token_range(), level, message, label, note);
     }
 
+private:
+    /// A helper function for `expect_token()`. If `match` is `false`, it indicates that the type of
+    /// `token` is not the expected type, and a diagnostic message is issued at the location of
+    /// `token`, indicating that the expected type corresponds to the string description
+    /// `expected_kinds_str`.
+    ///
+    /// This function is used to simplify the implementation of `expect_token()`. We do not forward
+    /// overloads that accept 2 or 3 `Token::TokenKind` arguments to the overload that accepts
+    /// `std::vector<Token::TokenKind>` to avoid the overhead of constructing a `vector`. This means
+    /// that we need to implement almost the same logic for each overload. This helper function is
+    /// extracted from that part.
+    // clang-format off
+    auto expect_token_impl(
+        Token const &token,
+        bool match,
+        std::string_view expected_kinds_str
+    ) -> bool;
+    // clang-format on
+
+protected:
     /// Returns whether `token` is **not** of kind `expected_kind`. If the kind does not match, it
     /// generates a diagnostic message and adds it to the `diagnostics_` list.
     auto expect_token(Token const &token, Token::TokenKind expected_kind) -> bool;
+
+    /// Returns whether `token` is neither of kind `expected_kind1` nor `expected_kind2`. If the
+    /// kind does not match, it generates a diagnostic message and adds it to the `diagnostics_`
+    /// list.
+    auto expect_token(
+        Token const &token,
+        Token::TokenKind expected_kind1,
+        Token::TokenKind expected_kind2
+    ) -> bool;
+
+    /// Returns whether `token` is neither of kind `expected_kind1`, `expected_kind2`, nor
+    /// `expected_kind3`. If the kind does not match, it generates a diagnostic message and adds it
+    /// to the `diagnostics_` list.
+    auto expect_token(
+        Token const &token,
+        Token::TokenKind expected_kind1,
+        Token::TokenKind expected_kind2,
+        Token::TokenKind expected_kind3
+    ) -> bool;
+
+    /// Returns whether `token` is **not** of any kind in `expected_kinds`. If the kind does not
+    /// match, it generates a diagnostic message and adds it to the `diagnostics_` list. Note that
+    /// `expected_kinds` must not be empty.
+    // clang-format off
+    auto expect_token(
+        Token const &token,
+        std::vector<Token::TokenKind> const &expected_kinds
+    ) -> bool;
+    // clang-format on
 
     auto expect_current_token(Token::TokenKind expected_kind) -> bool {
         return expect_token(lexer_.current_token(), expected_kind);
     }
 
+    // clang-format off
+    auto expect_current_token(
+        Token::TokenKind expected_kind1,
+        Token::TokenKind expected_kind2
+    ) -> bool {
+        return expect_token(lexer_.current_token(), expected_kind1, expected_kind2);
+    }
+    // clang-format on
+
+    auto expect_current_token(
+        Token::TokenKind expected_kind1,
+        Token::TokenKind expected_kind2,
+        Token::TokenKind expected_kind3
+    ) -> bool {
+        return expect_token(lexer_.current_token(), expected_kind1, expected_kind2, expected_kind3);
+    }
+
+    auto expect_current_token(std::vector<Token::TokenKind> const &expected_kinds) -> bool {
+        return expect_token(lexer_.current_token(), expected_kinds);
+    }
+
     auto expect_next_token(Token::TokenKind expected_kind) -> bool {
         return expect_token(lexer_.next_token(), expected_kind);
+    }
+
+    auto expect_next_token(Token::TokenKind expected_kind1, Token::TokenKind expected_kind2)
+        -> bool  //
+    {
+        return expect_token(lexer_.next_token(), expected_kind1, expected_kind2);
+    }
+
+    auto expect_next_token(
+        Token::TokenKind expected_kind1,
+        Token::TokenKind expected_kind2,
+        Token::TokenKind expected_kind3
+    ) -> bool {
+        return expect_token(lexer_.next_token(), expected_kind1, expected_kind2, expected_kind3);
+    }
+
+    auto expect_next_token(std::vector<Token::TokenKind> const &expected_kinds) -> bool {
+        return expect_token(lexer_.next_token(), expected_kinds);
     }
 
     /// Extracts the string content from a `token` that represents a string literal. The returned

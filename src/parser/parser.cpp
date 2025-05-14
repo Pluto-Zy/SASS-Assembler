@@ -5,6 +5,7 @@
 #include "sassas/utils/unreachable.hpp"
 
 #include "fmt/format.h"
+#include "fmt/ranges.h"
 
 #include "annotate_snippets/annotated_source.hpp"
 #include "annotate_snippets/diag.hpp"
@@ -16,9 +17,11 @@
 #include <cstdint>
 #include <iterator>
 #include <optional>
+#include <ranges>
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 namespace sassas {
 auto Parser::create_diag_at_token(
@@ -44,23 +47,84 @@ auto Parser::create_diag_at_token(
     return diag;
 }
 
-auto Parser::expect_token(Token const &token, Token::TokenKind expected_kind) -> bool {
-    if (token.is_not(expected_kind)) {
+auto Parser::expect_token_impl(Token const &token, bool match, std::string_view expected_kinds_str)
+    -> bool  //
+{
+    if (!match) {
         string_pool_.push_back(
-            fmt::format(
-                "expected {}, but got {}",
-                Token::kind_description(expected_kind),
-                token.kind_description()
-            )
+            fmt::format("expected {}, but got {}", expected_kinds_str, token.kind_description())
         );
 
         diagnostics_.push_back(
             create_diag_at_token(token, DiagLevel::Error, "Unexpected token", string_pool_.back())
         );
-        return true;
-    } else {
-        return false;
     }
+
+    return !match;
+}
+
+auto Parser::expect_token(Token const &token, Token::TokenKind expected_kind) -> bool {
+    return expect_token_impl(
+        token,
+        token.is(expected_kind),
+        Token::kind_description(expected_kind)
+    );
+}
+
+auto Parser::expect_token(
+    Token const &token,
+    Token::TokenKind expected_kind1,
+    Token::TokenKind expected_kind2
+) -> bool {
+    return expect_token_impl(
+        token,
+        token.is(expected_kind1) || token.is(expected_kind2),
+        fmt::format(
+            "{} or {}",
+            Token::kind_description(expected_kind1),
+            Token::kind_description(expected_kind2)
+        )
+    );
+}
+
+auto Parser::expect_token(
+    Token const &token,
+    Token::TokenKind expected_kind1,
+    Token::TokenKind expected_kind2,
+    Token::TokenKind expected_kind3
+) -> bool {
+    return expect_token_impl(
+        token,
+        token.is(expected_kind1) || token.is(expected_kind2) || token.is(expected_kind3),
+        fmt::format(
+            "{}, {} or {}",
+            Token::kind_description(expected_kind1),
+            Token::kind_description(expected_kind2),
+            Token::kind_description(expected_kind3)
+        )
+    );
+}
+
+auto Parser::expect_token(Token const &token, std::vector<Token::TokenKind> const &expected_kinds)
+    -> bool  //
+{
+    assert(!expected_kinds.empty() && "Expected at least one token kind");
+    return expect_token_impl(
+        token,
+        std::ranges::any_of(expected_kinds, [&](Token::TokenKind kind) { return token.is(kind); }),
+        fmt::format(
+            "{}{}{}",
+            fmt::join(
+                expected_kinds | std::views::take(expected_kinds.size() - 1)
+                    | std::views::transform([](Token::TokenKind kind) {
+                          return Token::kind_description(kind);
+                      }),
+                ", "
+            ),
+            expected_kinds.size() == 1 ? "" : " or ",
+            Token::kind_description(expected_kinds.back())
+        )
+    );
 }
 
 auto Parser::get_string_literal(Token const &token) -> std::optional<std::string_view> {
