@@ -23,6 +23,21 @@
 #include <vector>
 
 namespace sassas {
+auto ISAParser::recover_until(Token::TokenKind expected_kind) -> std::nullopt_t {
+    bool const match = lexer_.lex_until(expected_kind, /*consume=*/false);
+    if (!match) {
+        // We reached the end of the file without encountering the expected token. Generate
+        // diagnostic information.
+        diagnostics_.push_back(create_diag_at_token(
+            lexer_.current_token(),
+            DiagLevel::Error,
+            add_string(fmt::format("Expected `{}`", Token::kind_description(expected_kind)))
+        ));
+    }
+
+    return std::nullopt;
+}
+
 auto ISAParser::parse_architecture() -> std::optional<Architecture> {
     assert(
         lexer_.current_token().is(Token::KeywordArchitecture)
@@ -520,14 +535,7 @@ auto ISAParser::parse_registers() -> std::optional<RegisterTable> {
         // The category is invalid.
         has_errors = true;
         // Lex until the next semicolon.
-        bool const has_semi = lexer_.lex_until(Token::PunctuatorSemi, /*consume=*/false);
-        if (!has_semi) {
-            // We reached the end of the file without encountering a semicolon. Generate
-            // diagnostic information.
-            diagnostics_.push_back(
-                create_diag_at_token(lexer_.current_token(), DiagLevel::Error, "Expected ';'")
-            );
-        }
+        recover_until(Token::PunctuatorSemi);
     }
 
     if (has_errors) {
@@ -644,7 +652,7 @@ auto ISAParser::parse_single_table(const RegisterTable &register_table) -> std::
             if (auto const key = resolve_table_element(register_table)) {
                 keys.push_back(*key);
             } else {
-                goto Error;
+                return recover_until(Token::PunctuatorSemi);
             }
         }
 
@@ -694,7 +702,7 @@ auto ISAParser::parse_single_table(const RegisterTable &register_table) -> std::
             }
 
             diagnostics_.push_back(std::move(diag).with_source(std::move(source)));
-            goto Error;
+            return recover_until(Token::PunctuatorSemi);
         }
 
         // Eat the `->`.
@@ -704,24 +712,11 @@ auto ISAParser::parse_single_table(const RegisterTable &register_table) -> std::
         if (auto const value = resolve_table_element(register_table)) {
             result.append_item(keys, *value);
         } else {
-            goto Error;
+            return recover_until(Token::PunctuatorSemi);
         }
     }
 
     return result;
-
-Error:
-    // Lex until the next semicolon.
-    bool const has_semi = lexer_.lex_until(Token::PunctuatorSemi, /*consume=*/false);
-    if (!has_semi) {
-        // We reached the end of the file without encountering a semicolon. Generate diagnostic
-        // information.
-        diagnostics_.push_back(
-            create_diag_at_token(lexer_.current_token(), DiagLevel::Error, "Expected ';'")
-        );
-    }
-
-    return std::nullopt;
 }
 
 auto ISAParser::parse_tables(RegisterTable const &register_table) -> std::optional<TableMap> {

@@ -24,6 +24,14 @@ public:
 
     using Parser::Parser;
 
+private:
+    /// This function is used for error recovery. It will lex until it encounters a token of the
+    /// specified type. If it does not encounter the token, it generates diagnostic information. The
+    /// function always returns `std::nullopt`. Note that this function won't consume the token that
+    /// matches the specified type.
+    auto recover_until(Token::TokenKind expected_kind) -> std::nullopt_t;
+
+public:
     /// Parses the `ARCHITECTURE` section in the instruction description file. If the parsing is
     /// successful, it returns the parsed `Architecture` object. Otherwise, it returns
     /// `std::nullopt` and the generated diagnostic information can be obtained through the
