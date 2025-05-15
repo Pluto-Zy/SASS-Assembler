@@ -730,13 +730,22 @@ auto ISAParser::parse_tables(RegisterTable const &register_table) -> std::option
 
     while (lexer_.next_token().is(Token::Identifier)) {
         // The table name.
-        std::string_view const table_name = lexer_.current_token().content();
+        Token const table_name_token = lexer_.current_token();
+        std::string_view const table_name = table_name_token.content();
         // Consume the token.
         lexer_.next_token();
 
         // Parse the table.
         if (auto table = parse_single_table(register_table)) {
-            result.try_emplace(static_cast<std::string>(table_name), std::move(*table));
+            if (!result.try_emplace(static_cast<std::string>(table_name), std::move(*table)).second)
+            {
+                // The table name already exists in the map. Generate diagnostic information.
+                diagnostics_.push_back(
+                    create_diag_at_token(table_name_token, DiagLevel::Error, "Duplicate table name")
+                );
+
+                has_errors = true;
+            }
         } else {
             has_errors = true;
         }
