@@ -4,7 +4,10 @@
 #include "sassas/isa/architecture.hpp"
 #include "sassas/isa/condition_type.hpp"
 #include "sassas/isa/register.hpp"
+#include "sassas/isa/table.hpp"
+#include "sassas/lexer/lexer.hpp"
 #include "sassas/lexer/token.hpp"
+#include "sassas/utils/unreachable.hpp"
 
 #include "fmt/format.h"
 #include "fmt/ranges.h"
@@ -524,6 +527,223 @@ auto ISAParser::parse_registers() -> std::optional<RegisterTable> {
             diagnostics_.push_back(
                 create_diag_at_token(lexer_.current_token(), DiagLevel::Error, "Expected ';'")
             );
+        }
+    }
+
+    if (has_errors) {
+        return std::nullopt;
+    } else {
+        return result;
+    }
+}
+
+auto ISAParser::resolve_table_element(RegisterTable const &register_table)
+    -> std::optional<unsigned>  //
+{
+    // clang-format off
+    if (expect_current_token({
+            Token::Integer,
+            Token::Identifier,
+            Token::String,
+            Token::PunctuatorMinus,
+        }))
+    {
+        return std::nullopt;
+    }
+    // clang-format on
+
+    // A helper class that consumes the current token when we leave the scope.
+    struct ConsumeTokenRAII {
+        ~ConsumeTokenRAII() {
+            lexer.next_token();
+        }
+
+        Lexer &lexer;
+    } consume_token [[maybe_unused]] { .lexer = lexer_ };
+
+    switch (lexer_.current_token().kind()) {
+    case Token::Integer:
+        return expect_integer_constant(lexer_.current_token(), 32, false);
+
+    case Token::Identifier:
+    case Token::String: {
+        // Cases like `Predicate@P0` or `'&'`.
+
+        Token const register_category_token = lexer_.current_token();
+        auto const register_category = get_identifier_or_string(register_category_token);
+        if (!register_category) {
+            return std::nullopt;
+        }
+
+        if (lexer_.next_token().is(Token::PunctuatorAt)) {
+            auto const register_name = expect_identifier_or_string(lexer_.next_token());
+            if (!register_name) {
+                return std::nullopt;
+            }
+
+            // Get the category of the register.
+            if (auto const category = register_table.find(*register_category)) {
+                // The category exists. Get the value of the register.
+                if (auto const value = category->get().find(*register_name)) {
+                    return value;
+                } else {
+                    // The register name does not exist in the category. Generate diagnostic
+                    // information.
+                    diagnostics_.push_back(create_diag_at_token(
+                        lexer_.current_token(),
+                        DiagLevel::Error,
+                        "Unknown register name"
+                    ));
+                }
+            } else {
+                // The category does not exist. Generate diagnostic information.
+                diagnostics_.push_back(create_diag_at_token(
+                    register_category_token,
+                    DiagLevel::Error,
+                    "Unknown register category"
+                ));
+            }
+        } else {
+            // Special cases for the `FixLatDestMap` table.
+            if (register_category->size() != 1) {
+                // The register name is not a single character. Generate diagnostic information.
+                diagnostics_.push_back(create_diag_at_token(
+                    register_category_token,
+                    DiagLevel::Error,
+                    "Invalid table element"
+                ));
+            } else {
+                // The register name is a single character. Return its ASCII value.
+                return static_cast<unsigned>(register_category->front());
+            }
+        }
+
+        return std::nullopt;
+    }
+
+    case Token::PunctuatorMinus:
+        // The `-` token can match any value. We return a special value to indicate this.
+        return Table::MATCH_ANY;
+
+    default:
+        unreachable();
+    }
+}
+
+auto ISAParser::parse_single_table(const RegisterTable &register_table) -> std::optional<Table> {
+    Table result;
+    while (lexer_.current_token().is_not(Token::PunctuatorSemi)) {
+        // Parse the key of the table.
+        std::vector<unsigned> keys;
+        // The token range of each key.
+        std::vector<TokenRange> key_ranges;
+
+        while (lexer_.current_token().is_not(Token::PunctuatorArrow)) {
+            key_ranges.push_back(lexer_.current_token().token_range());
+
+            if (auto const key = resolve_table_element(register_table)) {
+                keys.push_back(*key);
+            } else {
+                goto Error;
+            }
+        }
+
+        if (result.key_size() == 0) {
+            // The table is empty. Set the key size.
+            result.set_key_size(keys.size());
+        } else if (result.key_size() != keys.size()) {
+            // The key size does not match. Generate diagnostic information.
+            auto diag = Diag(
+                DiagLevel::Error,
+                add_string(
+                    fmt::format(
+                        "The table expects {} key{}, but {} {} provided.",
+                        result.key_size(),
+                        result.key_size() > 1 ? "s" : "",
+                        keys.size(),
+                        keys.size() > 1 ? "are" : "is"
+                    )
+                )
+            );
+
+            ants::AnnotatedSource source(lexer_.source(), origin_);
+            if (result.key_size() < keys.size()) {
+                for (TokenRange const &range : key_ranges | std::views::take(key_ranges.size() - 1)
+                         | std::views::drop(result.key_size()))
+                {
+                    source.add_primary_annotation(range.location_begin(), range.location_end());
+                }
+
+                source.add_primary_annotation(
+                    key_ranges.back().location_begin(),
+                    key_ranges.back().location_end(),
+                    "unexpected keys"
+                );
+            } else {
+                source.add_primary_annotation(
+                    key_ranges.back().location_end(),
+                    key_ranges.back().location_end(),
+                    add_string(
+                        fmt::format(
+                            "missing {} key{}",
+                            result.key_size() - keys.size(),
+                            result.key_size() - keys.size() > 1 ? "s" : ""
+                        )
+                    )
+                );
+            }
+
+            diagnostics_.push_back(std::move(diag).with_source(std::move(source)));
+            goto Error;
+        }
+
+        // Eat the `->`.
+        lexer_.next_token();
+
+        // Parse the value.
+        if (auto const value = resolve_table_element(register_table)) {
+            result.append_item(keys, *value);
+        } else {
+            goto Error;
+        }
+    }
+
+    return result;
+
+Error:
+    // Lex until the next semicolon.
+    bool const has_semi = lexer_.lex_until(Token::PunctuatorSemi, /*consume=*/false);
+    if (!has_semi) {
+        // We reached the end of the file without encountering a semicolon. Generate diagnostic
+        // information.
+        diagnostics_.push_back(
+            create_diag_at_token(lexer_.current_token(), DiagLevel::Error, "Expected ';'")
+        );
+    }
+
+    return std::nullopt;
+}
+
+auto ISAParser::parse_tables(RegisterTable const &register_table) -> std::optional<TableMap> {
+    assert(
+        lexer_.current_token().is(Token::KeywordTables)
+        && "Expected `TABLES` keyword at the beginning"
+    );
+
+    TableMap result;
+    bool has_errors = false;
+
+    while (lexer_.next_token().is(Token::Identifier)) {
+        // The table name.
+        std::string_view const table_name = lexer_.current_token().content();
+        // Consume the token.
+        lexer_.next_token();
+
+        // Parse the table.
+        if (auto table = parse_single_table(register_table)) {
+            result.try_emplace(static_cast<std::string>(table_name), std::move(*table));
+        } else {
+            has_errors = true;
         }
     }
 

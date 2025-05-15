@@ -4,6 +4,7 @@
 #include "sassas/isa/architecture.hpp"
 #include "sassas/isa/condition_type.hpp"
 #include "sassas/isa/register.hpp"
+#include "sassas/isa/table.hpp"
 #include "sassas/lexer/token.hpp"
 #include "sassas/parser/parser.hpp"
 
@@ -19,6 +20,7 @@ class ISAParser : public Parser {
 public:
     using ConstantMap = std::unordered_map<std::string, int>;
     using StringMap = std::unordered_map<std::string, std::string>;
+    using TableMap = std::unordered_map<std::string, Table>;
 
     using Parser::Parser;
 
@@ -181,6 +183,36 @@ public:
     /// categories. Otherwise, it returns `std::nullopt` and the generated diagnostic information
     /// can be obtained through the `take_diagnostics()` method.
     auto parse_registers() -> std::optional<RegisterTable>;
+
+private:
+    /// Parses an element in a table. The element can be either a key or a value in the table. The
+    /// function converts the parsed element to an integer and returns it.
+    ///
+    /// The element in the table can be one of the following types:
+    ///
+    /// - Integer literal.
+    /// - Access to a specific register, such as `AVRG@noAVRG`. The parts on both sides of the `@`
+    ///   can be identifiers or strings.
+    /// - Token `-`, it seems that the character can match any value.
+    /// - A single string literal, which only appears in the `FixLatDestMap` table. The meaning of
+    ///   this content is currently unclear, so we only return the ASCII value of the character as
+    ///   an integer.
+    ///
+    /// This function will generate diagnostic information if the resolving fails.
+    auto resolve_table_element(RegisterTable const &register_table) -> std::optional<unsigned>;
+
+    /// Parses a single table in the `TABLES` section. It only parses the content of the table, not
+    /// the name of the table. The function assumes that the current token is the token after the
+    /// table name.
+    auto parse_single_table(RegisterTable const &register_table) -> std::optional<Table>;
+
+public:
+    /// Parses the `TABLES` section in the instruction description file. All registers in the table
+    /// will be resolved to their corresponding values in the `register_table` object. If the
+    /// parsing is successful, it returns a map of table names to their corresponding `Table`
+    /// objects. Otherwise, it returns `std::nullopt` and the generated diagnostic information can
+    /// be obtained through the `take_diagnostics()` method.
+    auto parse_tables(RegisterTable const &register_table) -> std::optional<TableMap>;
 };
 }  // namespace sassas
 
