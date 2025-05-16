@@ -81,10 +81,10 @@ private:
     ///             current token
     ///
     /// This function also checks whether the register category exists in `register_table`. If it
-    /// does not exist, it returns `std::nullopt`. Otherwise, it returns a `Registers` object that
-    /// represents the concatenated register list.
-    auto parse_register_category_concatenation(RegisterTable const &register_table)
-        -> std::optional<Registers>;
+    /// does not exist, it returns `std::nullopt`. Otherwise, it returns a `RegisterGroup` object
+    /// that represents the concatenated register list.
+    auto parse_register_category_concatenation(ISA::RegisterTable const &register_table)
+        -> std::optional<RegisterGroup>;
 
     /// Represents a range expression of the form `(begin..end)`, where `begin` and `end` are both
     /// 32-bit unsigned integers.
@@ -167,7 +167,7 @@ private:
     ///
     ///     Integer8 U8 = 0, S8 = 1;
     ///              ^^^^^^^^^^^^^^ parse this part
-    auto parse_register_list() -> std::optional<Registers>;
+    auto parse_register_list() -> std::optional<RegisterGroup>;
 
     /// Parses a register category, which is the name of the category followed by a register list.
     /// For example:
@@ -184,14 +184,15 @@ private:
     ///
     /// If an error occurs during the parsing of each part, this function will also perform error
     /// recovery.
-    auto parse_register_category(RegisterTable const &register_table) -> std::optional<Registers>;
+    auto parse_register_category(ISA::RegisterTable const &register_table)
+        -> std::optional<RegisterGroup>;
 
 public:
     /// Parses the `REGISTERS` section in the instruction description file. If the parsing is
     /// successful, it returns a `RegisterTable` object that contains the parsed register
     /// categories. Otherwise, it returns `std::nullopt` and the generated diagnostic information
     /// can be obtained through the `take_diagnostics()` method.
-    auto parse_registers() -> std::optional<RegisterTable>;
+    auto parse_registers() -> std::optional<ISA::RegisterTable>;
 
 private:
     /// Parses an element in a table. The element can be either a key or a value in the table. The
@@ -208,12 +209,12 @@ private:
     ///   an integer.
     ///
     /// This function will generate diagnostic information if the resolving fails.
-    auto resolve_table_element(RegisterTable const &register_table) -> std::optional<unsigned>;
+    auto resolve_table_element(ISA::RegisterTable const &register_table) -> std::optional<unsigned>;
 
     /// Parses a single table in the `TABLES` section. It only parses the content of the table, not
     /// the name of the table. The function assumes that the current token is the token after the
     /// table name.
-    auto parse_single_table(RegisterTable const &register_table) -> std::optional<Table>;
+    auto parse_single_table(ISA::RegisterTable const &register_table) -> std::optional<Table>;
 
 public:
     /// Parses the `TABLES` section in the instruction description file. All registers in the table
@@ -221,7 +222,7 @@ public:
     /// parsing is successful, it returns a map of table names to their corresponding `Table`
     /// objects. Otherwise, it returns `std::nullopt` and the generated diagnostic information can
     /// be obtained through the `take_diagnostics()` method.
-    auto parse_tables(RegisterTable const &register_table) -> std::optional<ISA::TableMap>;
+    auto parse_tables(ISA::RegisterTable const &register_table) -> std::optional<ISA::TableMap>;
 
 private:
     /// Parses an identifier list that ends with a semicolon. The identifiers are separated by

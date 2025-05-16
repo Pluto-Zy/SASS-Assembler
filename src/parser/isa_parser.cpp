@@ -362,24 +362,26 @@ auto ISAParser::parse_string_map() -> std::optional<ISA::StringMap> {
     }
 }
 
-auto ISAParser::parse_register_category_concatenation(RegisterTable const &register_table)
-    -> std::optional<Registers>  //
+auto ISAParser::parse_register_category_concatenation(ISA::RegisterTable const &register_table)
+    -> std::optional<RegisterGroup>  //
 {
     assert(
         lexer_.current_token().is(Token::PunctuatorEqual)
         && "Expected `=` at the beginning of register category concatenation"
     );
 
-    Registers result;
+    RegisterGroup result;
     // A helper function that appends the list of registers corresponding to the current token
     // (which represents the name of a register category) to the end of `result`. If the category
     // does not exist, it generates diagnostic information and returns `true`.
     auto const concat_category = [&] {
         std::string_view const category_name = lexer_.current_token().content();
 
-        if (auto registers = register_table.find(static_cast<std::string>(category_name))) {
+        if (auto const iter = register_table.find(static_cast<std::string>(category_name));
+            iter != register_table.end())
+        {
             // Copy is needed here.
-            result.concat_with(*registers);
+            result.concat_with(iter->second);
             return false;
         } else {
             // The category name is not found in the register table. Generate diagnostic
@@ -494,13 +496,13 @@ auto ISAParser::parse_register_value() -> std::optional<RangeExpr> {
     }
 }
 
-auto ISAParser::parse_register_list() -> std::optional<Registers> {
+auto ISAParser::parse_register_list() -> std::optional<RegisterGroup> {
     assert(
         (lexer_.current_token().is(Token::Identifier) || lexer_.current_token().is(Token::String))
         && "Expected register name or string literal at the beginning of register list"
     );
 
-    Registers result;
+    RegisterGroup result;
     while (true) {
         std::optional<RegisterName> names = parse_register_name();
         if (!names) {
@@ -585,8 +587,8 @@ auto ISAParser::parse_register_list() -> std::optional<Registers> {
     return result;
 }
 
-auto ISAParser::parse_register_category(RegisterTable const &register_table)
-    -> std::optional<Registers>  //
+auto ISAParser::parse_register_category(ISA::RegisterTable const &register_table)
+    -> std::optional<RegisterGroup>  //
 {
     assert(lexer_.current_token().is(Token::Identifier) && "Expected register category name");
 
@@ -605,25 +607,38 @@ auto ISAParser::parse_register_category(RegisterTable const &register_table)
     }
 }
 
-auto ISAParser::parse_registers() -> std::optional<RegisterTable> {
+auto ISAParser::parse_registers() -> std::optional<ISA::RegisterTable> {
     assert(
         lexer_.current_token().is(Token::KeywordRegisters)
         && "Expected `REGISTERS` keyword at the beginning"
     );
 
-    RegisterTable result;
+    ISA::RegisterTable result;
     bool has_errors = false;
 
     while (lexer_.next_token().is(Token::Identifier)) {
         // The category name.
-        std::string_view const category_name = lexer_.current_token().content();
+        Token const category_name_token = lexer_.current_token();
+        std::string_view const category_name = category_name_token.content();
 
-        if (std::optional<Registers> registers = parse_register_category(result)) {
+        if (std::optional<RegisterGroup> registers = parse_register_category(result)) {
             // The category is valid. Add it to the table.
-            result.add_register_category(
-                static_cast<std::string>(category_name),
-                std::move(*registers)
-            );
+            // clang-format off
+            if (!result.try_emplace(
+                    static_cast<std::string>(category_name),
+                    std::move(*registers)
+                ).second)
+            // clang-format on
+            {
+                // The category name already exists in the table. Generate diagnostic information.
+                diagnostics_.push_back(create_diag_at_token(
+                    category_name_token,
+                    DiagLevel::Error,
+                    "Duplicate register category name"
+                ));
+
+                has_errors = true;
+            }
 
             if (!expect_current_token(Token::PunctuatorSemi)) {
                 // The category is terminated by a semicolon.
@@ -644,7 +659,7 @@ auto ISAParser::parse_registers() -> std::optional<RegisterTable> {
     }
 }
 
-auto ISAParser::resolve_table_element(RegisterTable const &register_table)
+auto ISAParser::resolve_table_element(ISA::RegisterTable const &register_table)
     -> std::optional<unsigned>  //
 {
     // clang-format off
@@ -689,9 +704,11 @@ auto ISAParser::resolve_table_element(RegisterTable const &register_table)
             }
 
             // Get the category of the register.
-            if (auto const category = register_table.find(*register_category)) {
+            if (auto const iter = register_table.find(static_cast<std::string>(*register_category));
+                iter != register_table.end())
+            {
                 // The category exists. Get the value of the register.
-                if (auto const value = category->get().find(*register_name)) {
+                if (auto const value = iter->second.find(*register_name)) {
                     return value;
                 } else {
                     // The register name does not exist in the category. Generate diagnostic
@@ -737,7 +754,9 @@ auto ISAParser::resolve_table_element(RegisterTable const &register_table)
     }
 }
 
-auto ISAParser::parse_single_table(const RegisterTable &register_table) -> std::optional<Table> {
+auto ISAParser::parse_single_table(const ISA::RegisterTable &register_table)
+    -> std::optional<Table>  //
+{
     Table result;
     while (lexer_.current_token().is_not(Token::PunctuatorSemi)) {
         // Parse the key of the table.
@@ -818,7 +837,9 @@ auto ISAParser::parse_single_table(const RegisterTable &register_table) -> std::
     return result;
 }
 
-auto ISAParser::parse_tables(RegisterTable const &register_table) -> std::optional<ISA::TableMap> {
+auto ISAParser::parse_tables(ISA::RegisterTable const &register_table)
+    -> std::optional<ISA::TableMap>  //
+{
     assert(
         lexer_.current_token().is(Token::KeywordTables)
         && "Expected `TABLES` keyword at the beginning"

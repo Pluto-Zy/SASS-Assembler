@@ -16,6 +16,12 @@ namespace sassas {
 struct ISA {
     using ConstantMap = std::unordered_map<std::string, int>;
     using StringMap = std::unordered_map<std::string, std::string>;
+    /// This type is used to store the contents of the `REGISTERS` section in the instruction
+    /// description file. Each object starts with the name of the category to which it belongs,
+    /// followed by a list of registers separated by commas, and ends with a semicolon. This class
+    /// uses an `unordered_map` to store the mapping between the name of the category and the
+    /// corresponding list of registers (i.e. `RegisterGroup` object).
+    using RegisterTable = std::unordered_map<std::string, RegisterGroup>;
     using TableMap = std::unordered_map<std::string, Table>;
 
     /// The architecture information related to the ISA, represented as a series of key-value pairs

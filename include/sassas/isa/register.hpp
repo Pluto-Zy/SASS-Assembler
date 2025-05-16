@@ -9,7 +9,6 @@
 #include <ranges>
 #include <string>
 #include <string_view>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -27,8 +26,14 @@ struct Register {
 ///
 /// A value may correspond to multiple names, so we must follow a specific search order, which is
 /// why we cannot use `map` or `unordered_map`.
-class Registers {
+class RegisterGroup {
 public:
+    /// Returns the list of registers in this group. It can be used to dump the contents of this
+    /// object.
+    auto registers() const -> std::vector<Register> const & {
+        return registers_;
+    }
+
     /// Adds a new register to the end of the registers list.
     void append_register(std::string name, unsigned value) {
         registers_.emplace_back(std::move(name), value);
@@ -40,9 +45,9 @@ public:
         append_register(std::move(name), registers_.empty() ? 0 : registers_.back().value + 1);
     }
 
-    /// Concatenates the contents of another `Registers` object to this one. The `other` object is
-    /// moved into this object. Registers in `other` are appended to the end of this object.
-    void concat_with(Registers other) {
+    /// Concatenates the contents of another `RegisterGroup` object to this one. The `other` object
+    /// is moved into this object. Registers in `other` are appended to the end of this object.
+    void concat_with(RegisterGroup other) {
         registers_.insert(
             registers_.end(),
             std::make_move_iterator(other.registers_.begin()),
@@ -92,40 +97,6 @@ public:
 
 private:
     std::vector<Register> registers_;
-};
-
-/// This class represents the contents of the `REGISTERS` section in the instruction description
-/// file. Each object starts with the name of the category to which it belongs, followed by a list
-/// of registers separated by commas, and ends with a semicolon. This class uses an `unordered_map`
-/// to store the mapping between the name of the category and the corresponding list of registers
-/// (i.e. `Registers` object).
-class RegisterTable {
-public:
-    /// Adds a new register category to the table. The `name` is the name of the category, and
-    /// `registers` is the list of registers that belong to that category.
-    void add_register_category(std::string name, Registers registers) {
-        register_map_.emplace(std::move(name), std::move(registers));
-    }
-
-    /// Returns the corresponding `Registers` object for the given category name.
-    auto find(std::string const &name) const
-        -> std::optional<std::reference_wrapper<Registers const>>  //
-    {
-        if (auto const iter = register_map_.find(name); iter != register_map_.end()) {
-            return std::cref(iter->second);
-        } else {
-            return std::nullopt;
-        }
-    }
-
-    auto find(std::string_view name) const
-        -> std::optional<std::reference_wrapper<Registers const>>  //
-    {
-        return find(static_cast<std::string>(name));
-    }
-
-private:
-    std::unordered_map<std::string, Registers> register_map_;
 };
 }  // namespace sassas
 
