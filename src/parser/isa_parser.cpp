@@ -3,6 +3,7 @@
 #include "sassas/diagnostic/diagnostic.hpp"
 #include "sassas/isa/architecture.hpp"
 #include "sassas/isa/condition_type.hpp"
+#include "sassas/isa/isa.hpp"
 #include "sassas/isa/register.hpp"
 #include "sassas/isa/table.hpp"
 #include "sassas/lexer/lexer.hpp"
@@ -23,6 +24,104 @@
 #include <vector>
 
 namespace sassas {
+auto ISAParser::parse() -> std::optional<ISA> {
+    // Generate the first token.
+    lexer_.next_token();
+
+    bool has_errors = false;
+    ISA result;
+    while (lexer_.current_token().is_not(Token::End)) {
+        // Check that the current token is a keyword.
+        if (!lexer_.current_token().is_keyword()) {
+            diagnostics_.push_back(create_diag_at_token(
+                lexer_.current_token(),
+                DiagLevel::Error,
+                "Unexpected token",
+                add_string(
+                    fmt::format(
+                        "expected a keyword, but got `{}`",
+                        lexer_.current_token().kind_description()
+                    )
+                )
+            ));
+            return std::nullopt;
+        }
+
+        // NOLINTBEGIN(bugprone-macro-parentheses)
+#define PARSE_SECTION(keyword, sec_name)                                                           \
+    case Token::Keyword##keyword:                                                                  \
+        if (auto sec_name = parse_##sec_name()) {                                                  \
+            result.sec_name = std::move(*(sec_name));                                              \
+            continue;                                                                              \
+        }                                                                                          \
+        break;
+        // NOLINTEND(bugprone-macro-parentheses)
+
+        switch (lexer_.current_token().kind()) {
+            PARSE_SECTION(Architecture, architecture)
+            PARSE_SECTION(Parameters, parameters)
+            PARSE_SECTION(Constants, constants)
+            PARSE_SECTION(StringMap, string_map)
+            PARSE_SECTION(Registers, registers)
+
+        case Token::KeywordCondition:
+            if (!expect_next_token(Token::KeywordTypes)) {
+                if (auto condition_types = parse_condition_types()) {
+                    result.condition_types = std::move(*condition_types);
+                    continue;
+                }
+            }
+            break;
+
+        case Token::KeywordTables:
+            if (auto tables = parse_tables(result.registers)) {
+                result.tables = std::move(*tables);
+                continue;
+            }
+            break;
+
+        case Token::KeywordOperation:
+            if (!expect_next_token(Token::KeywordProperties, Token::KeywordPredicates)) {
+                if (lexer_.current_token().is(Token::KeywordProperties)) {
+                    if (auto properties = parse_operation_properties()) {
+                        result.operation_properties = std::move(*properties);
+                        continue;
+                    }
+                } else {
+                    if (auto predicates = parse_operation_predicates()) {
+                        result.operation_predicates = std::move(*predicates);
+                        continue;
+                    }
+                }
+            }
+            break;
+
+        default:
+            // We meet a keyword that we cannot parse. Just finish the parsing.
+            if (has_errors) {
+                // If there were any errors during parsing, return std::nullopt.
+                return std::nullopt;
+            } else {
+                return result;
+            }
+        }
+
+        // If we reach here, it means that the parsing of the current section failed. We need to
+        // recover until the next keyword.
+        has_errors = true;
+        lexer_.lex_until(&Token::is_keyword, /*consume=*/false);
+
+#undef PARSE_SECTION
+    }
+
+    if (has_errors) {
+        // If there were any errors during parsing, return std::nullopt.
+        return std::nullopt;
+    } else {
+        return result;
+    }
+}
+
 auto ISAParser::recover_until(Token::TokenKind expected_kind, bool consume) -> std::nullopt_t {
     bool const match = lexer_.lex_until(expected_kind, consume);
     if (!match) {
@@ -166,9 +265,9 @@ auto ISAParser::parse_condition_types() -> std::optional<std::vector<ConditionTy
     }
 }
 
-auto ISAParser::parse_constant_map() -> std::optional<ConstantMap> {
+auto ISAParser::parse_constant_map() -> std::optional<ISA::ConstantMap> {
     bool has_errors = false;
-    ConstantMap result_map;
+    ISA::ConstantMap result_map;
 
     while (lexer_.next_token().is(Token::Identifier)) {
         // The name of the constant.
@@ -205,7 +304,7 @@ auto ISAParser::parse_constant_map() -> std::optional<ConstantMap> {
     }
 }
 
-auto ISAParser::parse_parameters() -> std::optional<ConstantMap> {
+auto ISAParser::parse_parameters() -> std::optional<ISA::ConstantMap> {
     assert(
         lexer_.current_token().is(Token::KeywordParameters)
         && "Expected `PARAMETERS` keyword at the beginning"
@@ -214,7 +313,7 @@ auto ISAParser::parse_parameters() -> std::optional<ConstantMap> {
     return parse_constant_map();
 }
 
-auto ISAParser::parse_constants() -> std::optional<ConstantMap> {
+auto ISAParser::parse_constants() -> std::optional<ISA::ConstantMap> {
     assert(
         lexer_.current_token().is(Token::KeywordConstants)
         && "Expected `CONSTANTS` keyword at the beginning"
@@ -223,14 +322,14 @@ auto ISAParser::parse_constants() -> std::optional<ConstantMap> {
     return parse_constant_map();
 }
 
-auto ISAParser::parse_string_map() -> std::optional<StringMap> {
+auto ISAParser::parse_string_map() -> std::optional<ISA::StringMap> {
     assert(
         lexer_.current_token().is(Token::KeywordStringMap)
         && "Expected `STRING_MAP` keyword at the beginning"
     );
 
     bool has_errors = false;
-    StringMap result_map;
+    ISA::StringMap result_map;
 
     while (lexer_.next_token().is(Token::Identifier)) {
         // The name of the string.
@@ -719,13 +818,13 @@ auto ISAParser::parse_single_table(const RegisterTable &register_table) -> std::
     return result;
 }
 
-auto ISAParser::parse_tables(RegisterTable const &register_table) -> std::optional<TableMap> {
+auto ISAParser::parse_tables(RegisterTable const &register_table) -> std::optional<ISA::TableMap> {
     assert(
         lexer_.current_token().is(Token::KeywordTables)
         && "Expected `TABLES` keyword at the beginning"
     );
 
-    TableMap result;
+    ISA::TableMap result;
     bool has_errors = false;
 
     while (lexer_.next_token().is(Token::Identifier)) {

@@ -3,6 +3,7 @@
 
 #include "sassas/isa/architecture.hpp"
 #include "sassas/isa/condition_type.hpp"
+#include "sassas/isa/isa.hpp"
 #include "sassas/isa/register.hpp"
 #include "sassas/isa/table.hpp"
 #include "sassas/lexer/token.hpp"
@@ -12,17 +13,18 @@
 #include <ranges>
 #include <string>
 #include <string_view>
-#include <unordered_map>
 #include <vector>
 
 namespace sassas {
 class ISAParser : public Parser {
 public:
-    using ConstantMap = std::unordered_map<std::string, int>;
-    using StringMap = std::unordered_map<std::string, std::string>;
-    using TableMap = std::unordered_map<std::string, Table>;
-
     using Parser::Parser;
+
+    /// Parses the entire instruction description file. It will parse all sections in the file and
+    /// return an `ISA` object that contains all the parsed information. If the parsing is
+    /// successful, it returns the parsed `ISA` object. Otherwise, it returns `std::nullopt` and the
+    /// generated diagnostic information can be obtained through the `take_diagnostics()` method.
+    auto parse() -> std::optional<ISA>;
 
 private:
     /// This function is used for error recovery. It will lex until it encounters a token of the
@@ -49,25 +51,25 @@ private:
     /// token and terminates when the next keyword token is encountered.
     ///
     /// Currently we use `int` as the value type.
-    auto parse_constant_map() -> std::optional<ConstantMap>;
+    auto parse_constant_map() -> std::optional<ISA::ConstantMap>;
 
 public:
     /// Parses the `PARAMETERS` section in the instruction description file. If the parsing is
     /// successful, it returns a map of parameter names to their constant values. Otherwise, it
     /// returns `std::nullopt` and the generated diagnostic information can be obtained through the
     /// `take_diagnostics()` method.
-    auto parse_parameters() -> std::optional<ConstantMap>;
+    auto parse_parameters() -> std::optional<ISA::ConstantMap>;
 
     /// Parses the `CONSTANTS` section in the instruction description file. It does almost the same
     /// thing as `parse_parameters()`.
-    auto parse_constants() -> std::optional<ConstantMap>;
+    auto parse_constants() -> std::optional<ISA::ConstantMap>;
 
     /// Parses the `STRING_MAP` section in the instruction description file. It contains a mapping
     /// from an identifier to another identifier. If the parsing is successful, it returns a map of
     /// string names to their corresponding string values. Otherwise, it returns `std::nullopt` and
     /// the generated diagnostic information can be obtained through the `take_diagnostics()`
     /// method.
-    auto parse_string_map() -> std::optional<StringMap>;
+    auto parse_string_map() -> std::optional<ISA::StringMap>;
 
 private:
     /// Parses a register category concatenation, which is a list of register categories
@@ -219,7 +221,7 @@ public:
     /// parsing is successful, it returns a map of table names to their corresponding `Table`
     /// objects. Otherwise, it returns `std::nullopt` and the generated diagnostic information can
     /// be obtained through the `take_diagnostics()` method.
-    auto parse_tables(RegisterTable const &register_table) -> std::optional<TableMap>;
+    auto parse_tables(RegisterTable const &register_table) -> std::optional<ISA::TableMap>;
 
 private:
     /// Parses an identifier list that ends with a semicolon. The identifiers are separated by
