@@ -38,6 +38,9 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(annotate-snippets)
 
 add_executable(sassas
+    src/isa/condition_type.cpp
+    src/isa/register.cpp
+    src/isa/table.cpp
     src/lexer/token.cpp
     src/lexer/lexer.cpp
     src/parser/parser.cpp

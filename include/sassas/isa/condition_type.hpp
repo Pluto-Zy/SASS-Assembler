@@ -26,14 +26,7 @@ struct ConditionType {
     /// string representation of the kind of condition type. If the `kind` is not a valid kind, it
     /// returns `std::nullopt`.
     static auto from_string(std::string_view kind, std::string_view name)
-        -> std::optional<ConditionType>  //
-    {
-        if (auto const iter = KIND_STR_MAP.find(kind); iter == KIND_STR_MAP.end()) {
-            return std::nullopt;
-        } else {
-            return ConditionType(iter->second, static_cast<std::string>(name));
-        }
-    }
+        -> std::optional<ConditionType>;
 
     /// Returns a view of all valid kinds of condition types (in string).
     static auto get_kinds() {
