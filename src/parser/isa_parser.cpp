@@ -757,4 +757,43 @@ auto ISAParser::parse_tables(RegisterTable const &register_table) -> std::option
         return result;
     }
 }
+
+auto ISAParser::parse_identifier_list() -> std::optional<std::vector<std::string>> {
+    std::vector<std::string> result;
+    do {
+        // We are expecting identifier here, but we add the `PunctuatorSemi` token to the list of
+        // expected tokens, so that we can generate better diagnostic information.
+        if (expect_current_token(Token::Identifier, Token::PunctuatorSemi)) {
+            return recover_until(Token::PunctuatorSemi, /*consume=*/true);
+        }
+
+        result.emplace_back(lexer_.current_token().content());
+    } while (lexer_.next_token().is_not(Token::PunctuatorSemi));
+
+    // Eat the `;`.
+    lexer_.next_token();
+    return result;
+}
+
+auto ISAParser::parse_operation_properties() -> std::optional<std::vector<std::string>> {
+    assert(
+        lexer_.current_token().is(Token::KeywordProperties)
+        && "Expected `OPERATION PROPERTIES` keyword at the beginning"
+    );
+
+    // Eat the keyword.
+    lexer_.next_token();
+    return parse_identifier_list();
+}
+
+auto ISAParser::parse_operation_predicates() -> std::optional<std::vector<std::string>> {
+    assert(
+        lexer_.current_token().is(Token::KeywordPredicates)
+        && "Expected `OPERATION PREDICATES` keyword at the beginning"
+    );
+
+    // Eat the keyword.
+    lexer_.next_token();
+    return parse_identifier_list();
+}
 }  // namespace sassas

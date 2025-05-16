@@ -220,6 +220,25 @@ public:
     /// objects. Otherwise, it returns `std::nullopt` and the generated diagnostic information can
     /// be obtained through the `take_diagnostics()` method.
     auto parse_tables(RegisterTable const &register_table) -> std::optional<TableMap>;
+
+private:
+    /// Parses an identifier list that ends with a semicolon. The identifiers are separated by
+    /// spaces. This function is used to implement the parsing of the `OPERATION PROPERTIES` and
+    /// `OPERATION PREDICATES` sections.
+    ///
+    /// This function assumes that the current token is the first token of the identifier list.
+    auto parse_identifier_list() -> std::optional<std::vector<std::string>>;
+
+public:
+    /// Parses the `OPERATION PROPERTIES` section, which is a list of identifiers separated by
+    /// spaces. The list ends with a semicolon. If the parsing is successful, it returns a vector of
+    /// identifiers.
+    auto parse_operation_properties() -> std::optional<std::vector<std::string>>;
+
+    /// Parses the `OPERATION PREDICATES` section, which is a list of identifiers separated by
+    /// spaces. The list ends with a semicolon. If the parsing is successful, it returns a vector of
+    /// identifiers.
+    auto parse_operation_predicates() -> std::optional<std::vector<std::string>>;
 };
 }  // namespace sassas
 
