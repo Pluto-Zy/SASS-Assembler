@@ -64,6 +64,11 @@ public:
     /// name that matches the value. If no register is found, returns `std::nullopt`.
     auto find(unsigned value) const -> std::optional<std::reference_wrapper<std::string const>>;
 
+    /// Dumps the contents of this object to the standard output. It prints the name and value of
+    /// each register in the list. This function prints 5 registers per line and aligns the columns.
+    /// It is used for debugging purposes.
+    void dump(unsigned indent) const;
+
 private:
     std::vector<Register> registers_;
 };

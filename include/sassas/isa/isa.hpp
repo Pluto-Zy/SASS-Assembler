@@ -48,6 +48,9 @@ struct ISA {
     /// The `operation_properties` and `operation_predicates` are lists of identifiers that are
     /// parsed from the `OPERATION PROPERTIES` and `OPERATION PREDICATES` sections.
     std::vector<std::string> operation_properties, operation_predicates;
+
+    /// Dumps the contents of this object to the standard output. It is used for debugging purposes.
+    void dump() const;
 };
 }  // namespace sassas
 

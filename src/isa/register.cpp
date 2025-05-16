@@ -1,7 +1,11 @@
 #include "sassas/isa/register.hpp"
 
+#include "fmt/base.h"
+#include "fmt/format.h"
+
 #include <algorithm>
 #include <cctype>
+#include <cstddef>
 #include <functional>
 #include <optional>
 #include <ranges>
@@ -41,5 +45,31 @@ auto RegisterGroup::find(unsigned value) const
     }
 
     return std::nullopt;
+}
+
+void RegisterGroup::dump(unsigned indent) const {
+    // Collect the maximum length of the register names.
+    std::size_t column_widths[5] {};
+    for (std::size_t i = 0; i != registers_.size(); ++i) {
+        column_widths[i % 5] = std::ranges::max(column_widths[i % 5], registers_[i].name.size());
+    }
+
+    // Dump the register names and values.
+    for (std::size_t i = 0; i != registers_.size(); ++i) {
+        if (i % 5 == 0) {
+            if (i != 0) {
+                fmt::println("");
+            }
+
+            fmt::print("{:>{}}", "", indent);
+        }
+
+        fmt::print(
+            "{:<{}} {:<5} ",
+            registers_[i].name,
+            column_widths[i % 5],
+            fmt::format("({})", registers_[i].value)
+        );
+    }
 }
 }  // namespace sassas

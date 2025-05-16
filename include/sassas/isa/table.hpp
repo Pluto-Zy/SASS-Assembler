@@ -45,6 +45,10 @@ public:
 
     auto get_value(std::span<unsigned const> keys) const -> std::optional<unsigned>;
 
+    /// Dumps the content of the table to the standard output. It will align the output to the
+    /// specified indentation level. It is used for debugging purposes.
+    void dump(unsigned indent) const;
+
 private:
     std::vector<unsigned> content_;
     unsigned key_size_;
