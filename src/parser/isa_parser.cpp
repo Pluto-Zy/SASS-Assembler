@@ -23,8 +23,8 @@
 #include <vector>
 
 namespace sassas {
-auto ISAParser::recover_until(Token::TokenKind expected_kind) -> std::nullopt_t {
-    bool const match = lexer_.lex_until(expected_kind, /*consume=*/false);
+auto ISAParser::recover_until(Token::TokenKind expected_kind, bool consume) -> std::nullopt_t {
+    bool const match = lexer_.lex_until(expected_kind, consume);
     if (!match) {
         // We reached the end of the file without encountering the expected token. Generate
         // diagnostic information.
@@ -535,7 +535,7 @@ auto ISAParser::parse_registers() -> std::optional<RegisterTable> {
         // The category is invalid.
         has_errors = true;
         // Lex until the next semicolon.
-        recover_until(Token::PunctuatorSemi);
+        recover_until(Token::PunctuatorSemi, /*consume=*/false);
     }
 
     if (has_errors) {
@@ -652,7 +652,7 @@ auto ISAParser::parse_single_table(const RegisterTable &register_table) -> std::
             if (auto const key = resolve_table_element(register_table)) {
                 keys.push_back(*key);
             } else {
-                return recover_until(Token::PunctuatorSemi);
+                return recover_until(Token::PunctuatorSemi, /*consume=*/false);
             }
         }
 
@@ -702,7 +702,7 @@ auto ISAParser::parse_single_table(const RegisterTable &register_table) -> std::
             }
 
             diagnostics_.push_back(std::move(diag).with_source(std::move(source)));
-            return recover_until(Token::PunctuatorSemi);
+            return recover_until(Token::PunctuatorSemi, /*consume=*/false);
         }
 
         // Eat the `->`.
@@ -712,7 +712,7 @@ auto ISAParser::parse_single_table(const RegisterTable &register_table) -> std::
         if (auto const value = resolve_table_element(register_table)) {
             result.append_item(keys, *value);
         } else {
-            return recover_until(Token::PunctuatorSemi);
+            return recover_until(Token::PunctuatorSemi, /*consume=*/false);
         }
     }
 

@@ -27,9 +27,8 @@ public:
 private:
     /// This function is used for error recovery. It will lex until it encounters a token of the
     /// specified type. If it does not encounter the token, it generates diagnostic information. The
-    /// function always returns `std::nullopt`. Note that this function won't consume the token that
-    /// matches the specified type.
-    auto recover_until(Token::TokenKind expected_kind) -> std::nullopt_t;
+    /// function always returns `std::nullopt`.
+    auto recover_until(Token::TokenKind expected_kind, bool consume) -> std::nullopt_t;
 
 public:
     /// Parses the `ARCHITECTURE` section in the instruction description file. If the parsing is
