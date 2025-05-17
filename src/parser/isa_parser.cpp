@@ -3,6 +3,7 @@
 #include "sassas/diagnostic/diagnostic.hpp"
 #include "sassas/isa/architecture.hpp"
 #include "sassas/isa/condition_type.hpp"
+#include "sassas/isa/functional_unit.hpp"
 #include "sassas/isa/isa.hpp"
 #include "sassas/isa/register.hpp"
 #include "sassas/isa/table.hpp"
@@ -15,7 +16,9 @@
 
 #include "annotate_snippets/annotated_source.hpp"
 
+#include <algorithm>
 #include <cassert>
+#include <iterator>
 #include <optional>
 #include <ranges>
 #include <string>
@@ -63,6 +66,7 @@ auto ISAParser::parse() -> std::optional<ISA> {
             PARSE_SECTION(Constants, constants)
             PARSE_SECTION(StringMap, string_map)
             PARSE_SECTION(Registers, registers)
+            PARSE_SECTION(FUnit, functional_unit)
 
         case Token::KeywordCondition:
             if (!expect_next_token(Token::KeywordTypes)) {
@@ -915,5 +919,154 @@ auto ISAParser::parse_operation_predicates() -> std::optional<std::vector<std::s
     // Eat the keyword.
     lexer_.next_token();
     return parse_identifier_list();
+}
+
+auto ISAParser::parse_encoding_width() -> std::optional<unsigned> {
+    if (auto const val = expect_integer_constant(lexer_.current_token(), 32, false)) {
+        auto const encoding_width = static_cast<unsigned>(*val);
+        if (encoding_width == 0 || encoding_width > 128) {
+            // The encoding width is invalid. Generate diagnostic information.
+            diagnostics_.push_back(create_diag_at_token(
+                lexer_.current_token(),
+                DiagLevel::Error,
+                "Invalid encoding width"
+            ));
+        } else {
+            // Eat the `;`.
+            if (!expect_next_token(Token::PunctuatorSemi)) {
+                return *val;
+            }
+        }
+    }
+
+    // We only return when we succeed in the above code. So if we reach here, it means we failed.
+    return recover_until(Token::PunctuatorSemi, /*consume=*/false);
+}
+
+auto ISAParser::parse_bitmask(unsigned encoding_width) -> std::optional<BitMask> {
+    assert(lexer_.current_token().is(Token::String) && "Expected a string literal token");
+
+    Token const bitmask_token = lexer_.current_token();
+    if (auto const bitmask_str = get_string_literal(bitmask_token)) {
+        // Check the content of the bitmask.
+        if (bitmask_str->size() != encoding_width) {
+            diagnostics_.push_back(create_diag_at_token(
+                bitmask_token,
+                DiagLevel::Error,
+                add_string(
+                    fmt::format(
+                        "The bitmask must be {} bits long, but got {} bits",
+                        encoding_width,
+                        bitmask_str->size()
+                    )
+                )
+            ));
+
+            return std::nullopt;
+        }
+
+        // NOLINTNEXTLINE(readability-qualified-auto)
+        auto const invalid_char_iter =
+            std::ranges::find_if(*bitmask_str, [](char ch) { return ch != '.' && ch != 'X'; });
+        if (invalid_char_iter != bitmask_str->end()) {
+            unsigned const char_pos = bitmask_token.location_begin() + 1
+                + std::ranges::distance(bitmask_str->begin(), invalid_char_iter);
+
+            diagnostics_.push_back(
+                create_diag_at_token(
+                    TokenRange(char_pos, char_pos + 1),
+                    DiagLevel::Error,
+                    add_string(fmt::format("Invalid character `{}` in bitmask", *invalid_char_iter))
+                )
+                    .with_sub_diag_entry(DiagLevel::Note, "Only `X` and `.` are allowed")
+            );
+            return std::nullopt;
+        }
+
+        return BitMask(*bitmask_str);
+    }
+
+    return std::nullopt;
+}
+
+auto ISAParser::parse_functional_unit() -> std::optional<FunctionalUnit> {
+    assert(
+        lexer_.current_token().is(Token::KeywordFUnit)
+        && "Expected `FUNIT` keyword at the beginning"
+    );
+
+    bool has_errors = false;
+    FunctionalUnit result;
+
+    // The name of the functional unit.
+    if (expect_next_token(Token::Identifier)) {
+        has_errors = true;
+    } else {
+        result.set_name(static_cast<std::string>(lexer_.current_token().content()));
+    }
+
+    // Note that `ENCODING` is a keyword, so we need to specially handle it.
+    while (lexer_.next_token().is(Token::Identifier)
+           || lexer_.current_token().is(Token::KeywordEncoding))
+    {
+        // Parse the name of the item, which may consist of multiple identifiers.
+        Token item_name = lexer_.current_token();
+
+        // Eat the current token and lex for more identifiers.
+        lexer_.next_token();
+        lexer_.lex_until(
+            [&](Token const &token) {
+                if (token.is(Token::Identifier)) {
+                    item_name = item_name.merge(token, Token::Identifier);
+                    return false;
+                } else {
+                    return true;
+                }
+            },
+            /*consume=*/false
+        );
+
+        if (item_name.content() == "ENCODING WIDTH") {
+            // Parse the encoding width.
+            if (auto const val = parse_encoding_width()) {
+                result.set_encoding_width(*val);
+            } else {
+                has_errors = true;
+            }
+        } else {
+            // This is not a special item. Check if it is a bitmask.
+            if (lexer_.current_token().is(Token::String)) {
+                // We recognize string literals as bitmasks.
+                if (auto bitmask = parse_bitmask(result.encoding_width())) {
+                    // Add the bitmask to the functional unit.
+                    if (result.add_bitmask(
+                            static_cast<std::string>(item_name.content()),
+                            std::move(*bitmask)
+                        ))
+                    {
+                        continue;
+                    } else {
+                        // Duplicate bitmask name. Generate diagnostic information.
+                        diagnostics_.push_back(create_diag_at_token(
+                            item_name,
+                            DiagLevel::Error,
+                            "Duplicate bitmask name"
+                        ));
+                    }
+                }
+
+                has_errors = true;
+            } else {
+                // For other items, ignore them and lex until the next semicolon.
+                recover_until(Token::PunctuatorSemi, /*consume=*/false);
+            }
+        }
+    }
+
+    if (has_errors) {
+        return std::nullopt;
+    } else {
+        return result;
+    }
 }
 }  // namespace sassas

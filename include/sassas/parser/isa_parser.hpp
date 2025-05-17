@@ -3,6 +3,7 @@
 
 #include "sassas/isa/architecture.hpp"
 #include "sassas/isa/condition_type.hpp"
+#include "sassas/isa/functional_unit.hpp"
 #include "sassas/isa/isa.hpp"
 #include "sassas/isa/register.hpp"
 #include "sassas/isa/table.hpp"
@@ -242,6 +243,42 @@ public:
     /// spaces. The list ends with a semicolon. If the parsing is successful, it returns a vector of
     /// identifiers.
     auto parse_operation_predicates() -> std::optional<std::vector<std::string>>;
+
+private:
+    /// Parses the value of `ENCODING WIDTH` in the `FUNIT` section. It is an integer that ends with
+    /// a semicolon. The function checks its validity. If an error occurs, it will recover from the
+    /// error. When the function exits, the current token is the semicolon.
+    auto parse_encoding_width() -> std::optional<unsigned>;
+
+    /// Parses a bitmask represented by a string.
+    ///
+    /// In the ISA description file, a bitmask string consists of `.` and `X` characters. `X`
+    /// indicates that the bit needs to be set, while `.` indicates that the bit does not need to be
+    /// set. The order of `X` and `.` is from high bit to low bit.
+    ///
+    /// `encoding_width` specifies the encoding width of the instruction, so all bitmask strings
+    /// must have the same length as this value.
+    ///
+    /// This function assumes that the current token is the bitmask string itself. The function
+    /// won't consume this token.
+    auto parse_bitmask(unsigned encoding_width) -> std::optional<BitMask>;
+
+public:
+    /// Parses the `FUNIT` section in the instruction description file.
+    ///
+    /// The format of this section is still not well understood. For example, in
+    /// `sm_90_instructions.txt`, this section contains two items: `ISSUE_SLOTS` and `ENCODING
+    /// WIDTH`, both of which correspond to an integer value and end with a semicolon. However,
+    /// there are many bitmask strings that follow, and they do not end with a semicolon. In
+    /// `sm_50_instructions.txt`, `ISSUE_SLOTS` corresponds to two integer values.
+    ///
+    /// Currently, our strategy is as follows: we set the identifier `uC` after the `FUNIT` keyword
+    /// as its name, and then parse a series of items. Each item starts with several consecutive
+    /// identifiers as its name (so we can correctly handle `ENCODING WIDTH`). After the item name,
+    /// a string (representing a bitmask) or other types of content can follow. For other items, if
+    /// it is a bitmask, we parse it normally; otherwise, we consider it an irrelevant item and skip
+    /// it until we encounter a semicolon.
+    auto parse_functional_unit() -> std::optional<FunctionalUnit>;
 };
 }  // namespace sassas
 

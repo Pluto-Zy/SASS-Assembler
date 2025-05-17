@@ -124,5 +124,9 @@ void ISA::dump() const {
 
     dump_string_list("Operation Properties", operation_properties);
     dump_string_list("Operation Predicates", operation_predicates);
+
+    fmt::println("Functional Unit\n================");
+    functional_unit.dump(4);
+    fmt::println("");
 }
 }  // namespace sassas

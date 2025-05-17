@@ -3,6 +3,7 @@
 
 #include "sassas/isa/architecture.hpp"
 #include "sassas/isa/condition_type.hpp"
+#include "sassas/isa/functional_unit.hpp"
 #include "sassas/isa/register.hpp"
 #include "sassas/isa/table.hpp"
 
@@ -48,6 +49,8 @@ struct ISA {
     /// The `operation_properties` and `operation_predicates` are lists of identifiers that are
     /// parsed from the `OPERATION PROPERTIES` and `OPERATION PREDICATES` sections.
     std::vector<std::string> operation_properties, operation_predicates;
+    /// The `FunctionalUnit` object represents the contents of the `FUNIT` section in the file.
+    FunctionalUnit functional_unit;
 
     /// Dumps the contents of this object to the standard output. It is used for debugging purposes.
     void dump() const;

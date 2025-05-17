@@ -41,6 +41,7 @@ add_executable(sassas
     src/isa/condition_type.cpp
     src/isa/register.cpp
     src/isa/table.cpp
+    src/isa/functional_unit.cpp
     src/isa/isa.cpp
     src/lexer/token.cpp
     src/lexer/lexer.cpp
